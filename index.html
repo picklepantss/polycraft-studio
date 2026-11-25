@@ -1,0 +1,3511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#14111f" />
+  <meta name="apple-mobile-web-app-title" content="Polycraft Studio" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <title>Polycraft Studio — Stylized Low-Poly 3D Workshop</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-deep: #13101e;
+      --bg-panel: rgba(24, 20, 38, 0.88);
+      --bg-panel-solid: #1b162b;
+      --bg-elevated: rgba(39, 33, 60, 0.92);
+      --border-subtle: rgba(255, 240, 214, 0.11);
+      --border-strong: rgba(245, 166, 35, 0.45);
+      --accent-amber: #f5a623;
+      --accent-amber-soft: rgba(245, 166, 35, 0.18);
+      --accent-teal: #38d9c0;
+      --accent-teal-soft: rgba(56, 217, 192, 0.16);
+      --accent-coral: #ff6b6b;
+      --text-main: #f6f1e7;
+      --text-muted: #aba3be;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      touch-action: none;
+    }
+
+    input[type="text"], input[type="number"] {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    #viewport-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      background: radial-gradient(circle at 50% 42%, #241e3a 0%, #141021 72%, #0e0b18 100%);
+    }
+
+    #viewport-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* Subtle PS2 Bayer Dither overlay when Retro Preview + Dither enabled */
+    #retro-dither-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      background-image: radial-gradient(rgba(0,0,0,0.34) 1px, transparent 0);
+      background-size: 3px 3px;
+      mix-blend-mode: multiply;
+      z-index: 4;
+    }
+    #retro-dither-overlay.active {
+      opacity: 0.7;
+    }
+
+    .glass-bar {
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 8px 28px rgba(5, 3, 14, 0.45);
+    }
+
+    .touch-btn {
+      min-width: 40px;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.14s ease, border-color 0.14s ease, transform 0.1s ease, color 0.14s ease;
+    }
+    .touch-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .touch-btn:active {
+      transform: scale(0.95);
+    }
+    .touch-btn.active {
+      background: var(--accent-amber-soft);
+      border-color: var(--border-strong);
+      color: #ffd07a;
+    }
+    .touch-btn.teal-active {
+      background: var(--accent-teal-soft);
+      border-color: rgba(56, 217, 192, 0.55);
+      color: #7df2df;
+    }
+    .touch-btn:disabled {
+      opacity: 0.32;
+      pointer-events: none;
+    }
+
+    .seg-pill {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 14px;
+      background: rgba(12, 9, 22, 0.65);
+      border: 1px solid var(--border-subtle);
+      gap: 2px;
+    }
+    .seg-pill button {
+      min-height: 34px;
+      padding: 0 11px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .seg-pill button.active {
+      background: var(--accent-amber);
+      color: #1a1205;
+      box-shadow: 0 2px 10px rgba(245, 166, 35, 0.35);
+    }
+
+    /* Drawer / Sheet */
+    .studio-sheet {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      bottom: calc(74px + var(--safe-bottom));
+      width: min(560px, calc(100vw - 20px));
+      max-height: min(52dvh, 430px);
+      border-radius: 20px;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .studio-sheet.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .sheet-scroll {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+
+    /* Custom tactile sliders */
+    input[type="range"].poly-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      outline: none;
+    }
+    input[type="range"].poly-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+      border: 2px solid #1c162c;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+    }
+
+    /* Contextual Floating Action Bar */
+    #context-bar {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(76px + var(--safe-bottom));
+      z-index: 18;
+      max-width: calc(100vw - 20px);
+      overflow-x: auto;
+      scrollbar-width: none;
+      touch-action: pan-x;
+      transition: bottom 0.2s ease, opacity 0.15s ease;
+    }
+    #context-bar::-webkit-scrollbar { display: none; }
+
+    /* Toast */
+    #toast-wrap {
+      position: fixed;
+      top: calc(68px + var(--safe-top));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .toast-pill {
+      background: rgba(22, 18, 36, 0.94);
+      border: 1px solid rgba(245, 166, 35, 0.45);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      animation: toastIn 0.18s ease;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .swatch-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+    .swatch-btn.active, .swatch-btn:hover {
+      transform: scale(1.1);
+      border-color: #ffffff;
+    }
+
+    @media (max-width: 640px) {
+      .hide-xs { display: none !important; }
+      .seg-pill button { padding: 0 8px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D Viewport Container -->
+  <div id="viewport-wrap">
+    <canvas id="viewport-canvas"></canvas>
+  </div>
+  <div id="retro-dither-overlay"></div>
+
+  <!-- Top Navigation & Mode Bar -->
+  <header class="fixed top-0 left-0 right-0 z-20 px-2.5 pt-2.5 flex items-center justify-between gap-2 pointer-events-none" style="padding-top: calc(10px + var(--safe-top));">
+    <!-- Left: Brand + Undo/Redo -->
+    <div class="glass-bar rounded-2xl px-2 py-1 flex items-center gap-1 pointer-events-auto">
+      <div class="flex items-center gap-2 pl-1.5 pr-2">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-stone-950 font-extrabold text-sm shadow">P</div>
+        <div class="leading-tight hide-xs">
+          <div class="text-xs font-extrabold tracking-tight text-amber-100">Polycraft Studio</div>
+          <div id="project-status" class="text-[10px] text-purple-200/70">Autosaved</div>
+        </div>
+      </div>
+      <div class="w-px h-6 bg-white/10 mx-0.5"></div>
+      <button id="btn-undo" class="touch-btn px-2" title="Undo (Ctrl+Z)" disabled>
+        <i data-lucide="undo-2" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-redo" class="touch-btn px-2" title="Redo (Ctrl+Y)" disabled>
+        <i data-lucide="redo-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Center: Selection Mode Switcher -->
+    <div class="glass-bar rounded-2xl p-1 pointer-events-auto">
+      <div class="seg-pill" role="tablist" aria-label="Selection Mode">
+        <button id="mode-object" class="active" data-mode="object" title="Object Mode (1)">
+          <i data-lucide="box" class="w-3.5 h-3.5"></i><span>Object</span>
+        </button>
+        <button id="mode-vertex" data-mode="vertex" title="Vertex Mode (2)">
+          <i data-lucide="circle-dot" class="w-3.5 h-3.5"></i><span>Vert</span>
+        </button>
+        <button id="mode-edge" data-mode="edge" title="Edge Mode (3)">
+          <i data-lucide="slash" class="w-3.5 h-3.5"></i><span>Edge</span>
+        </button>
+        <button id="mode-face" data-mode="face" title="Face Mode (4)">
+          <i data-lucide="pentagon" class="w-3.5 h-3.5"></i><span>Face</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Quick Toggles (Symmetry, Snap, Retro Preview, Camera Menu) -->
+    <div class="glass-bar rounded-2xl px-1.5 py-1 flex items-center gap-1 pointer-events-auto">
+      <button id="btn-symmetry" class="touch-btn px-2" title="X-Axis Symmetry Editing">
+        <i data-lucide="flip-horizontal-2" class="w-4 h-4"></i><span class="hide-xs">Sym X</span>
+      </button>
+      <button id="btn-snap" class="touch-btn px-2" title="Grid Snap (0.25m)">
+        <i data-lucide="magnet" class="w-4 h-4"></i>
+      </button>
+      <button id="btn-retro" class="touch-btn px-2" title="PS2 Retro Preview (Non-Destructive)">
+        <i data-lucide="tv" class="w-4 h-4"></i><span class="hide-xs">PS2</span>
+      </button>
+      <button id="btn-camera-menu" class="touch-btn px-2" title="Camera & View Options">
+        <i data-lucide="video" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Collapsible Camera & Preview Popover (Top Right) -->
+  <div id="camera-popover" class="glass-bar fixed right-3 z-30 rounded-2xl p-3 w-64 hidden" style="top: calc(64px + var(--safe-top));">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold uppercase tracking-wider text-amber-200/90">Camera & Preview</span>
+      <button id="btn-close-cam" class="touch-btn !min-w-7 !min-h-7 rounded-lg"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+    </div>
+    <div class="grid grid-cols-2 gap-1.5 mb-2.5">
+      <button id="btn-proj-persp" class="touch-btn active !min-h-9 bg-white/5 text-xs">Perspective</button>
+      <button id="btn-proj-ortho" class="touch-btn !min-h-9 bg-white/5 text-xs">Orthographic</button>
+    </div>
+    <div class="grid grid-cols-4 gap-1.5 mb-2.5">
+      <button class="touch-btn !min-h-9 bg-white/5 text-xs" data-camview="front">Front</button>
+      <button class="touch-btn !min-h-9 bg-white/5 text-xs" data-camview="side">Side</button>
+      <button class="touch-btn !min-h-9 bg-white/5 text-xs" data-camview="top">Top</button>
+      <button class="touch-btn !min-h-9 bg-white/5 text-xs" data-camview="back">Back</button>
+    </div>
+    <div class="grid grid-cols-2 gap-1.5 mb-3">
+      <button id="btn-cam-focus" class="touch-btn !min-h-9 bg-white/5 text-xs"><i data-lucide="crosshair" class="w-3.5 h-3.5"></i>Focus</button>
+      <button id="btn-fullscreen" class="touch-btn !min-h-9 bg-white/5 text-xs"><i data-lucide="maximize" class="w-3.5 h-3.5"></i>Fullscreen</button>
+    </div>
+    <div class="border-t border-white/10 pt-2.5 space-y-2">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-purple-200/70">Preview Effects (Non-Export)</div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-purple-100/90">Wireframe Overlay</span>
+        <button id="btn-wireframe" class="touch-btn !min-h-8 px-2.5 bg-white/5 text-xs">Off</button>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-purple-100/90">PS2 Low-Res + Fog</span>
+        <button id="btn-retro-inner" class="touch-btn !min-h-8 px-2.5 bg-white/5 text-xs">Off</button>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-purple-100/90">Ink Outlines</span>
+        <button id="btn-outlines" class="touch-btn !min-h-8 px-2.5 bg-white/5 text-xs">Off</button>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-purple-100/90">Lighting Mood</span>
+        <button id="btn-lighting-mood" class="touch-btn !min-h-8 px-2.5 bg-white/5 text-xs">Mansion</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Transform Gizmo Mode + Axis Pill (Left side) -->
+  <div id="transform-rail" class="glass-bar fixed left-2.5 top-1/2 -translate-y-1/2 z-15 rounded-2xl p-1.5 flex flex-col items-center gap-1">
+    <button id="gizmo-move" class="touch-btn active !w-10 !h-10" data-gizmo="translate" title="Move (G)">
+      <i data-lucide="move" class="w-4 h-4"></i>
+    </button>
+    <button id="gizmo-rotate" class="touch-btn !w-10 !h-10" data-gizmo="rotate" title="Rotate (R)">
+      <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+    </button>
+    <button id="gizmo-scale" class="touch-btn !w-10 !h-10" data-gizmo="scale" title="Scale (S)">
+      <i data-lucide="maximize-2" class="w-4 h-4"></i>
+    </button>
+    <div class="w-6 h-px bg-white/10 my-0.5"></div>
+    <button id="axis-free" class="touch-btn active !w-10 !h-8 text-[11px] font-bold" data-axis="free" title="Free Screen-Plane Drag">Free</button>
+    <button id="axis-x" class="touch-btn !w-10 !h-8 text-[11px] font-bold text-rose-400" data-axis="x" title="Lock X Axis">X</button>
+    <button id="axis-y" class="touch-btn !w-10 !h-8 text-[11px] font-bold text-emerald-400" data-axis="y" title="Lock Y Axis">Y</button>
+    <button id="axis-z" class="touch-btn !w-10 !h-8 text-[11px] font-bold text-sky-400" data-axis="z" title="Lock Z Axis">Z</button>
+  </div>
+
+  <!-- Stats & Gesture Hint Chip (Bottom Left above dock on desktop, Top Left below header on mobile) -->
+  <div id="stats-chip" class="glass-bar fixed left-3 z-10 rounded-xl px-2.5 py-1.5 text-[11px] text-purple-100/85 pointer-events-none flex items-center gap-2.5" style="top: calc(64px + var(--safe-top));">
+    <span id="stat-poly">0 Tris · 0 Faces · 0 Verts</span>
+    <span id="stat-sel" class="text-teal-300 font-semibold"></span>
+  </div>
+
+  <!-- Live Transform Delta Readout -->
+  <div id="drag-hud" class="glass-bar fixed left-1/2 -translate-x-1/2 z-30 rounded-full px-3.5 py-1 text-xs font-bold text-amber-200 hidden pointer-events-none" style="top: calc(68px + var(--safe-top));"></div>
+
+  <!-- Contextual Floating Action Bar (changes by Object / Vertex / Edge / Face selection) -->
+  <div id="context-bar" class="glass-bar rounded-2xl px-1.5 py-1 flex items-center gap-1 hidden"></div>
+
+  <!-- Collapsible Bottom Tool Sheet -->
+  <section id="studio-sheet" class="studio-sheet glass-bar" aria-hidden="true">
+    <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+      <div class="flex items-center gap-2">
+        <span id="sheet-title" class="text-sm font-bold text-amber-100">Workshop</span>
+        <span id="sheet-subtitle" class="text-[11px] text-purple-200/65"></span>
+      </div>
+      <button id="btn-close-sheet" class="touch-btn !min-w-8 !min-h-8 rounded-xl bg-white/5">
+        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div id="sheet-body" class="sheet-scroll p-3.5 space-y-3"></div>
+  </section>
+
+  <!-- Bottom Tactile Dock -->
+  <nav class="fixed bottom-0 left-0 right-0 z-20 px-2.5 pb-2.5 flex justify-center pointer-events-none" style="padding-bottom: calc(10px + var(--safe-bottom));">
+    <div class="glass-bar rounded-2xl px-1.5 py-1.5 flex items-center gap-1 pointer-events-auto max-w-full overflow-x-auto">
+      <button class="touch-btn px-3 flex-col !gap-0.5 !min-h-[50px] !min-w-[60px]" data-sheet="add">
+        <i data-lucide="plus-square" class="w-4 h-4"></i>
+        <span class="text-[10.5px]">Add</span>
+      </button>
+      <button class="touch-btn px-3 flex-col !gap-0.5 !min-h-[50px] !min-w-[60px]" data-sheet="deform">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span class="text-[10.5px]">Shape</span>
+      </button>
+      <button class="touch-btn px-3 flex-col !gap-0.5 !min-h-[50px] !min-w-[60px]" data-sheet="paint">
+        <i data-lucide="palette" class="w-4 h-4"></i>
+        <span class="text-[10.5px]">Paint</span>
+      </button>
+      <button class="touch-btn px-3 flex-col !gap-0.5 !min-h-[50px] !min-w-[60px]" data-sheet="scene">
+        <i data-lucide="layers" class="w-4 h-4"></i>
+        <span class="text-[10.5px]">Scene</span>
+      </button>
+      <button class="touch-btn px-3 flex-col !gap-0.5 !min-h-[50px] !min-w-[60px]" data-sheet="export">
+        <i data-lucide="download" class="w-4 h-4"></i>
+        <span class="text-[10.5px]">Godot</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Toast Notifications -->
+  <div id="toast-wrap"></div>
+
+  <!-- Hidden File Inputs for Project JSON & GLB Import -->
+  <input id="input-import-json" type="file" accept=".json,.polycraft" class="hidden" />
+  <input id="input-import-glb" type="file" accept=".glb" class="hidden" />
+
+  <script>
+    /* =========================================================================
+     * POLYCRAFT STUDIO — MODULAR ARCHITECTURE (PHASES 1–4 READY)
+     * Modules:
+     *   1. GeometryCore   : EditableMesh B-Rep topology (verts, edges, faces)
+     *   2. DemoWorkshop   : Handcrafted stylized low-poly assets (Crooked Bookshelf,
+     *                       Spooky Mansion Door, Stylized Spooky Tree)
+     *   3. MaterialLib    : Stylized PS2-era hand-painted palette & materials
+     *   4. HistoryManager : Command/Snapshot Undo & Redo engine
+     *   5. StorageManager : IndexedDB autosave + JSON backup export/import
+     *   6. GodotGLB       : Binary GLB 2.0 exporter, importer & Godot 4 validator
+     *   7. ViewportEngine : Three.js renderer, custom gizmo, selection overlays,
+     *                       touch/pen/mouse gesture separation & Retro PS2 preview
+     *   8. StudioApp      : State store, UI sheets, contextual menus & wiring
+     * ========================================================================= */
+
+    // =========================================================================
+    // 1. MATERIAL LIBRARY (Stylized Early-2000s Palette)
+    // =========================================================================
+    const MaterialLib = {
+      presets: [
+        { id: 'aged_wood',    name: 'Aged Oak',      color: '#6b442a', roughness: 0.85, metalness: 0.05 },
+        { id: 'dark_timber',  name: 'Dark Timber',   color: '#42281c', roughness: 0.88, metalness: 0.05 },
+        { id: 'mossy_stone',  name: 'Mossy Stone',   color: '#6d7570', roughness: 0.92, metalness: 0.04 },
+        { id: 'mansion_plaster', name: 'Old Plaster', color: '#cfc2a8', roughness: 0.90, metalness: 0.02 },
+        { id: 'wrought_iron', name: 'Wrought Iron',  color: '#2e313b', roughness: 0.55, metalness: 0.65 },
+        { id: 'tarnished_brass', name: 'Old Brass',  color: '#c9973e', roughness: 0.42, metalness: 0.72 },
+        { id: 'velvet_plum',  name: 'Mystery Plum',  color: '#6d315c', roughness: 0.86, metalness: 0.04 },
+        { id: 'autumn_leaf',  name: 'Spooky Teal',   color: '#2f6d65', roughness: 0.84, metalness: 0.02 },
+        { id: 'pumpkin',      name: 'Amber Glow',    color: '#d97828', roughness: 0.72, metalness: 0.05 },
+        { id: 'book_crimson', name: 'Tome Red',      color: '#9e2f38', roughness: 0.82, metalness: 0.04 },
+        { id: 'book_cobalt',  name: 'Tome Blue',     color: '#34588a', roughness: 0.82, metalness: 0.04 },
+        { id: 'ghost_mint',   name: 'Ecto Mint',     color: '#5ce0b8', roughness: 0.45, metalness: 0.05 },
+      ],
+      hexToRgb01(hex) {
+        const clean = hex.replace('#', '');
+        const n = parseInt(clean, 16);
+        return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+      }
+    };
+
+    // =========================================================================
+    // 2. GEOMETRY CORE: GENUINE EDITABLE MESH (B-Rep Topology)
+    // =========================================================================
+    class EditableMesh {
+      constructor(vertices = [], faces = []) {
+        // vertices: [{ x, y, z }]
+        // faces: [{ verts: [i0, i1, i2, ...], color: '#hex', materialId: 'aged_wood' }]
+        this.vertices = vertices.map(v => ({ x: +v.x, y: +v.y, z: +v.z }));
+        this.faces = faces.map(f => ({
+          verts: [...f.verts],
+          color: f.color || '#6b442a',
+          materialId: f.materialId || 'aged_wood'
+        }));
+      }
+
+      clone() {
+        return new EditableMesh(this.vertices, this.faces);
+      }
+
+      toJSON() {
+        return {
+          vertices: this.vertices.map(v => [
+            +v.x.toFixed(5), +v.y.toFixed(5), +v.z.toFixed(5)
+          ]),
+          faces: this.faces.map(f => ({
+            v: [...f.verts],
+            c: f.color,
+            m: f.materialId
+          }))
+        };
+      }
+
+      static fromJSON(data) {
+        const verts = (data.vertices || []).map(v =>
+          Array.isArray(v) ? { x: v[0], y: v[1], z: v[2] } : { x: v.x, y: v.y, z: v.z }
+        );
+        const faces = (data.faces || []).map(f => ({
+          verts: f.v || f.verts,
+          color: f.c || f.color || '#6b442a',
+          materialId: f.m || f.materialId || 'aged_wood'
+        }));
+        return new EditableMesh(verts, faces);
+      }
+
+      getTriangleCount() {
+        let tris = 0;
+        for (const f of this.faces) {
+          if (f.verts.length >= 3) tris += f.verts.length - 2;
+        }
+        return tris;
+      }
+
+      getEdges() {
+        // Returns deduplicated array of { a, b, key, faces: [fIdx...] }
+        const map = new Map();
+        for (let fi = 0; fi < this.faces.length; fi++) {
+          const vs = this.faces[fi].verts;
+          for (let i = 0; i < vs.length; i++) {
+            const v0 = vs[i];
+            const v1 = vs[(i + 1) % vs.length];
+            const a = Math.min(v0, v1);
+            const b = Math.max(v0, v1);
+            const key = `${a}_${b}`;
+            if (!map.has(key)) map.set(key, { a, b, key, faces: [] });
+            map.get(key).faces.push(fi);
+          }
+        }
+        return Array.from(map.values());
+      }
+
+      computeFaceNormal(faceIdx) {
+        const f = this.faces[faceIdx];
+        if (!f || f.verts.length < 3) return new THREE.Vector3(0, 1, 0);
+        // Newell's method for robust polygon normals
+        let nx = 0, ny = 0, nz = 0;
+        const n = f.verts.length;
+        for (let i = 0; i < n; i++) {
+          const c = this.vertices[f.verts[i]];
+          const next = this.vertices[f.verts[(i + 1) % n]];
+          if (!c || !next) continue;
+          nx += (c.y - next.y) * (c.z + next.z);
+          ny += (c.z - next.z) * (c.x + next.x);
+          nz += (c.x - next.x) * (c.y + next.y);
+        }
+        const vec = new THREE.Vector3(nx, ny, nz);
+        if (vec.lengthSq() < 1e-10) return new THREE.Vector3(0, 1, 0);
+        return vec.normalize();
+      }
+
+      computeFaceCenter(faceIdx) {
+        const f = this.faces[faceIdx];
+        const c = new THREE.Vector3();
+        if (!f || !f.verts.length) return c;
+        for (const vi of f.verts) {
+          const v = this.vertices[vi];
+          if (v) c.add(new THREE.Vector3(v.x, v.y, v.z));
+        }
+        return c.divideScalar(f.verts.length);
+      }
+
+      getBounds() {
+        const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+        const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+        for (const v of this.vertices) {
+          if (v.x < min.x) min.x = v.x;
+          if (v.y < min.y) min.y = v.y;
+          if (v.z < min.z) min.z = v.z;
+          if (v.x > max.x) max.x = v.x;
+          if (v.y > max.y) max.y = v.y;
+          if (v.z > max.z) max.z = v.z;
+        }
+        if (!this.vertices.length) {
+          min.set(0, 0, 0);
+          max.set(0, 0, 0);
+        }
+        return {
+          min, max,
+          center: min.clone().add(max).multiplyScalar(0.5),
+          size: max.clone().sub(min)
+        };
+      }
+
+      // ---- Topology Operations ----
+
+      extrudeFaces(faceIndices, distance = 0.35) {
+        const valid = [...new Set(faceIndices)].filter(fi => fi >= 0 && fi < this.faces.length);
+        if (!valid.length) return [];
+
+        const selectedSet = new Set(valid);
+        // Compute average extrusion direction
+        const avgNormal = new THREE.Vector3();
+        for (const fi of valid) avgNormal.add(this.computeFaceNormal(fi));
+        if (avgNormal.lengthSq() < 1e-8) avgNormal.set(0, 1, 0);
+        else avgNormal.normalize();
+
+        // Count directed edge occurrences within selected faces to find boundary loop
+        const edgeCount = new Map();
+        const boundaryDirected = [];
+        for (const fi of valid) {
+          const vs = this.faces[fi].verts;
+          for (let i = 0; i < vs.length; i++) {
+            const a = vs[i];
+            const b = vs[(i + 1) % vs.length];
+            const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+            edgeCount.set(key, (edgeCount.get(key) || 0) + 1);
+          }
+        }
+        for (const fi of valid) {
+          const vs = this.faces[fi].verts;
+          const faceColor = this.faces[fi].color;
+          const faceMat = this.faces[fi].materialId;
+          for (let i = 0; i < vs.length; i++) {
+            const a = vs[i];
+            const b = vs[(i + 1) % vs.length];
+            const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+            if (edgeCount.get(key) === 1) {
+              boundaryDirected.push({ a, b, color: faceColor, materialId: faceMat });
+            }
+          }
+        }
+
+        // Duplicate all vertices used by selected faces
+        const oldToNew = new Map();
+        for (const fi of valid) {
+          for (const vi of this.faces[fi].verts) {
+            if (!oldToNew.has(vi)) {
+              const orig = this.vertices[vi];
+              const newIdx = this.vertices.length;
+              this.vertices.push({
+                x: orig.x + avgNormal.x * distance,
+                y: orig.y + avgNormal.y * distance,
+                z: orig.z + avgNormal.z * distance
+              });
+              oldToNew.set(vi, newIdx);
+            }
+          }
+        }
+
+        // Remap selected faces to use duplicated extruded vertices
+        for (const fi of valid) {
+          this.faces[fi].verts = this.faces[fi].verts.map(vi => oldToNew.get(vi));
+        }
+
+        // Stitch side wall quads along boundary edges
+        for (const edge of boundaryDirected) {
+          const na = oldToNew.get(edge.a);
+          const nb = oldToNew.get(edge.b);
+          this.faces.push({
+            verts: [edge.a, edge.b, nb, na],
+            color: edge.color,
+            materialId: edge.materialId
+          });
+        }
+
+        return valid;
+      }
+
+      insetFaces(faceIndices, factor = 0.25) {
+        const valid = [...new Set(faceIndices)].filter(fi => fi >= 0 && fi < this.faces.length);
+        if (!valid.length) return [];
+        const t = Math.max(0.05, Math.min(0.85, factor));
+
+        for (const fi of valid) {
+          const f = this.faces[fi];
+          const center = this.computeFaceCenter(fi);
+          const origVerts = [...f.verts];
+          const innerVerts = [];
+          for (const vi of origVerts) {
+            const v = this.vertices[vi];
+            const idx = this.vertices.length;
+            this.vertices.push({
+              x: v.x + (center.x - v.x) * t,
+              y: v.y + (center.y - v.y) * t,
+              z: v.z + (center.z - v.z) * t
+            });
+            innerVerts.push(idx);
+          }
+          // Replace original face with inner face
+          f.verts = innerVerts;
+          // Add border quads
+          for (let i = 0; i < origVerts.length; i++) {
+            const next = (i + 1) % origVerts.length;
+            this.faces.push({
+              verts: [origVerts[i], origVerts[next], innerVerts[next], innerVerts[i]],
+              color: f.color,
+              materialId: f.materialId
+            });
+          }
+        }
+        return valid;
+      }
+
+      bevelFaces(faceIndices, amount = 0.14) {
+        // Inset + slight outward/inward step produces a crisp low-poly bevel
+        const valid = this.insetFaces(faceIndices, Math.min(0.45, Math.max(0.08, amount * 1.4)));
+        for (const fi of valid) {
+          const n = this.computeFaceNormal(fi);
+          for (const vi of this.faces[fi].verts) {
+            this.vertices[vi].x += n.x * amount * 0.55;
+            this.vertices[vi].y += n.y * amount * 0.55;
+            this.vertices[vi].z += n.z * amount * 0.55;
+          }
+        }
+        return valid;
+      }
+
+      subdivideFaces(faceIndices) {
+        const targets = faceIndices && faceIndices.length
+          ? [...new Set(faceIndices)].filter(fi => fi >= 0 && fi < this.faces.length)
+          : this.faces.map((_, i) => i);
+        if (!targets.length) return [];
+
+        const targetSet = new Set(targets);
+        const edgeMidMap = new Map();
+        const getEdgeMid = (a, b) => {
+          const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+          if (edgeMidMap.has(key)) return edgeMidMap.get(key);
+          const va = this.vertices[a], vb = this.vertices[b];
+          const idx = this.vertices.length;
+          this.vertices.push({
+            x: (va.x + vb.x) * 0.5,
+            y: (va.y + vb.y) * 0.5,
+            z: (va.z + vb.z) * 0.5
+          });
+          edgeMidMap.set(key, idx);
+          return idx;
+        };
+
+        const newFaces = [];
+        const newTargetIndices = [];
+
+        for (let fi = 0; fi < this.faces.length; fi++) {
+          const f = this.faces[fi];
+          if (!targetSet.has(fi)) {
+            // Check if any edge of this neighbor face was split to prevent T-junctions
+            const vs = f.verts;
+            const rebuilt = [];
+            for (let i = 0; i < vs.length; i++) {
+              const a = vs[i], b = vs[(i + 1) % vs.length];
+              rebuilt.push(a);
+              const key = `${Math.min(a, b)}_${Math.max(a, b)}`;
+              if (edgeMidMap.has(key)) rebuilt.push(edgeMidMap.get(key));
+            }
+            newFaces.push({ verts: rebuilt, color: f.color, materialId: f.materialId });
+            continue;
+          }
+
+          const c = this.computeFaceCenter(fi);
+          const cIdx = this.vertices.length;
+          this.vertices.push({ x: c.x, y: c.y, z: c.z });
+
+          const vs = f.verts;
+          const mids = vs.map((v, i) => getEdgeMid(v, vs[(i + 1) % vs.length]));
+          for (let i = 0; i < vs.length; i++) {
+            const prevMid = mids[(i - 1 + vs.length) % vs.length];
+            const currMid = mids[i];
+            newTargetIndices.push(newFaces.length);
+            newFaces.push({
+              verts: [vs[i], currMid, cIdx, prevMid],
+              color: f.color,
+              materialId: f.materialId
+            });
+          }
+        }
+
+        this.faces = newFaces;
+        return newTargetIndices;
+      }
+
+      deleteFaces(faceIndices) {
+        const delSet = new Set(faceIndices);
+        this.faces = this.faces.filter((_, i) => !delSet.has(i));
+        this.pruneUnusedVertices();
+      }
+
+      deleteVertices(vertIndices) {
+        const delSet = new Set(vertIndices);
+        this.faces = this.faces.filter(f => !f.verts.some(vi => delSet.has(vi)));
+        this.pruneUnusedVertices();
+      }
+
+      weldVertices(vertIndices, threshold = 0.0) {
+        // If threshold > 0, welds any pairs within threshold; else welds all vertIndices to their centroid
+        if (threshold > 0) {
+          const remap = this.vertices.map((_, i) => i);
+          const th2 = threshold * threshold;
+          for (let i = 0; i < this.vertices.length; i++) {
+            if (remap[i] !== i) continue;
+            const vi = this.vertices[i];
+            for (let j = i + 1; j < this.vertices.length; j++) {
+              if (remap[j] !== j) continue;
+              const vj = this.vertices[j];
+              const dx = vi.x - vj.x, dy = vi.y - vj.y, dz = vi.z - vj.z;
+              if (dx * dx + dy * dy + dz * dz <= th2) {
+                remap[j] = i;
+              }
+            }
+          }
+          this._remapAndClean(remap);
+          return;
+        }
+
+        const unique = [...new Set(vertIndices)].filter(i => i >= 0 && i < this.vertices.length);
+        if (unique.length < 2) return;
+        let cx = 0, cy = 0, cz = 0;
+        for (const vi of unique) {
+          cx += this.vertices[vi].x;
+          cy += this.vertices[vi].y;
+          cz += this.vertices[vi].z;
+        }
+        cx /= unique.length; cy /= unique.length; cz /= unique.length;
+        const target = unique[0];
+        this.vertices[target] = { x: cx, y: cy, z: cz };
+        const remap = this.vertices.map((_, i) => i);
+        for (let k = 1; k < unique.length; k++) remap[unique[k]] = target;
+        this._remapAndClean(remap);
+      }
+
+      _remapAndClean(remap) {
+        const cleanedFaces = [];
+        for (const f of this.faces) {
+          const nv = [];
+          for (const vi of f.verts) {
+            const m = remap[vi];
+            if (nv.length === 0 || nv[nv.length - 1] !== m) nv.push(m);
+          }
+          if (nv.length > 1 && nv[0] === nv[nv.length - 1]) nv.pop();
+          const uniqueCount = new Set(nv).size;
+          if (nv.length >= 3 && uniqueCount >= 3) {
+            cleanedFaces.push({ verts: nv, color: f.color, materialId: f.materialId });
+          }
+        }
+        this.faces = cleanedFaces;
+        this.pruneUnusedVertices();
+      }
+
+      pruneUnusedVertices() {
+        const used = new Set();
+        for (const f of this.faces) for (const vi of f.verts) used.add(vi);
+        const newVerts = [];
+        const remap = new Map();
+        for (let i = 0; i < this.vertices.length; i++) {
+          if (used.has(i)) {
+            remap.set(i, newVerts.length);
+            newVerts.push(this.vertices[i]);
+          }
+        }
+        this.vertices = newVerts;
+        for (const f of this.faces) {
+          f.verts = f.verts.map(vi => remap.get(vi));
+        }
+      }
+
+      mirrorX(mergeWithOriginal = true) {
+        const origVertCount = this.vertices.length;
+        const origFaces = this.faces.map(f => ({ verts: [...f.verts], color: f.color, materialId: f.materialId }));
+        if (!mergeWithOriginal) {
+          for (const v of this.vertices) v.x = -v.x;
+          for (const f of this.faces) f.verts.reverse();
+          return;
+        }
+        for (let i = 0; i < origVertCount; i++) {
+          const v = this.vertices[i];
+          this.vertices.push({ x: -v.x, y: v.y, z: v.z });
+        }
+        for (const f of origFaces) {
+          this.faces.push({
+            verts: f.verts.map(vi => vi + origVertCount).reverse(),
+            color: f.color,
+            materialId: f.materialId
+          });
+        }
+        this.weldVertices([], 0.001);
+      }
+
+      recalculateNormals() {
+        // Ensure outward winding relative to mesh centroid for closed/convex-ish volumes
+        const { center } = this.getBounds();
+        let dotSum = 0;
+        for (let fi = 0; fi < this.faces.length; fi++) {
+          const n = this.computeFaceNormal(fi);
+          const fc = this.computeFaceCenter(fi).sub(center);
+          dotSum += n.dot(fc);
+        }
+        if (dotSum < 0) {
+          for (const f of this.faces) f.verts.reverse();
+        }
+      }
+
+      mergeWith(otherMesh, offsetPos = { x: 0, y: 0, z: 0 }) {
+        const base = this.vertices.length;
+        for (const v of otherMesh.vertices) {
+          this.vertices.push({
+            x: v.x + offsetPos.x,
+            y: v.y + offsetPos.y,
+            z: v.z + offsetPos.z
+          });
+        }
+        for (const f of otherMesh.faces) {
+          this.faces.push({
+            verts: f.verts.map(vi => vi + base),
+            color: f.color,
+            materialId: f.materialId
+          });
+        }
+      }
+
+      // ---- Artistic Shape Deformers (Crookedness, Taper, Bend, Twist, Bulge) ----
+      applyDeform(type, amount) {
+        if (Math.abs(amount) < 1e-4) return;
+        const { min, max, center, size } = this.getBounds();
+        const h = Math.max(size.y, 0.001);
+        const w = Math.max(size.x, 0.001);
+
+        for (let i = 0; i < this.vertices.length; i++) {
+          const v = this.vertices[i];
+          const ty = (v.y - min.y) / h; // 0 at bottom, 1 at top
+          const cy = v.y - center.y;
+
+          if (type === 'crooked') {
+            // Whimsical Scooby-Doo lean + organic hand-crafted irregularity
+            const hash = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+            const jitter = (hash - Math.floor(hash) - 0.5) * 0.14 * amount;
+            v.x += Math.pow(ty, 1.4) * amount * 0.48 + jitter;
+            v.z += Math.sin(ty * Math.PI) * amount * 0.18 + jitter * 0.7;
+            v.y += Math.sin((v.x - center.x) * 2.1) * amount * 0.08;
+          } else if (type === 'taper') {
+            const scale = Math.max(0.15, 1 + (ty - 0.5) * amount * 1.1);
+            v.x = center.x + (v.x - center.x) * scale;
+            v.z = center.z + (v.z - center.z) * scale;
+          } else if (type === 'bend') {
+            const angle = ty * amount * 0.9;
+            const dx = v.x - center.x;
+            const dy = v.y - min.y;
+            const cos = Math.cos(angle), sin = Math.sin(angle);
+            v.x = center.x + dx * cos + dy * sin * 0.45;
+            v.y = min.y + dy * cos - dx * sin * 0.25;
+          } else if (type === 'twist') {
+            const angle = (ty - 0.5) * amount * Math.PI * 0.85;
+            const dx = v.x - center.x;
+            const dz = v.z - center.z;
+            const cos = Math.cos(angle), sin = Math.sin(angle);
+            v.x = center.x + dx * cos - dz * sin;
+            v.z = center.z + dx * sin + dz * cos;
+          } else if (type === 'bulge') {
+            const bulgeFactor = 1 + Math.sin(ty * Math.PI) * amount * 0.65;
+            v.x = center.x + (v.x - center.x) * bulgeFactor;
+            v.z = center.z + (v.z - center.z) * bulgeFactor;
+          } else if (type === 'squash') {
+            const sy = Math.max(0.25, 1 - amount * 0.45);
+            const sxz = 1 / Math.sqrt(sy);
+            v.y = min.y + (v.y - min.y) * sy;
+            v.x = center.x + (v.x - center.x) * sxz;
+            v.z = center.z + (v.z - center.z) * sxz;
+          }
+        }
+      }
+
+      // ---- Convert to Three.js BufferGeometry with Box-Projected UVs & Face Colors ----
+      toThreeBufferGeometry(flatShading = true, selectedFaces = null) {
+        const positions = [];
+        const normals = [];
+        const uvs = [];
+        const colors = [];
+        const faceMap = []; // triangleIndex -> faceIndex
+
+        // Compute smooth vertex normals if needed
+        let smoothNormals = null;
+        if (!flatShading) {
+          smoothNormals = this.vertices.map(() => new THREE.Vector3());
+          for (let fi = 0; fi < this.faces.length; fi++) {
+            const fn = this.computeFaceNormal(fi);
+            for (const vi of this.faces[fi].verts) {
+              if (smoothNormals[vi]) smoothNormals[vi].add(fn);
+            }
+          }
+          for (const sn of smoothNormals) {
+            if (sn.lengthSq() > 1e-8) sn.normalize();
+            else sn.set(0, 1, 0);
+          }
+        }
+
+        const selSet = selectedFaces ? new Set(selectedFaces) : null;
+
+        for (let fi = 0; fi < this.faces.length; fi++) {
+          const f = this.faces[fi];
+          if (f.verts.length < 3) continue;
+          const fn = this.computeFaceNormal(fi);
+          const ax = Math.abs(fn.x), ay = Math.abs(fn.y), az = Math.abs(fn.z);
+
+          let [r, g, b] = MaterialLib.hexToRgb01(f.color || '#6b442a');
+          if (selSet && selSet.has(fi)) {
+            // Subtle warm highlight tint on selected faces
+            r = Math.min(1, r * 0.55 + 0.45);
+            g = Math.min(1, g * 0.55 + 0.32);
+            b = Math.min(1, b * 0.55 + 0.08);
+          }
+
+          // Fan triangulation
+          for (let i = 1; i < f.verts.length - 1; i++) {
+            const tri = [f.verts[0], f.verts[i], f.verts[i + 1]];
+            for (const vi of tri) {
+              const v = this.vertices[vi];
+              positions.push(v.x, v.y, v.z);
+              const n = flatShading ? fn : smoothNormals[vi];
+              normals.push(n.x, n.y, n.z);
+
+              // Clean box-projected UV for Godot 4 compatibility
+              let u = 0, vv = 0;
+              if (ay >= ax && ay >= az) { u = v.x * 0.5 + 0.5; vv = v.z * 0.5 + 0.5; }
+              else if (ax >= ay && ax >= az) { u = v.z * 0.5 + 0.5; vv = v.y * 0.5 + 0.5; }
+              else { u = v.x * 0.5 + 0.5; vv = v.y * 0.5 + 0.5; }
+              uvs.push(u, vv);
+              colors.push(r, g, b);
+            }
+            faceMap.push(fi);
+          }
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geom.userData.faceMap = faceMap;
+        geom.computeBoundingSphere();
+        geom.computeBoundingBox();
+        return geom;
+      }
+
+      // ---- Primitive Generators ----
+      static createBox(w = 1, h = 1, d = 1, color = '#6b442a', materialId = 'aged_wood', ox = 0, oy = 0, oz = 0) {
+        const hw = w / 2, hh = h / 2, hd = d / 2;
+        const verts = [
+          { x: ox - hw, y: oy - hh, z: oz + hd }, // 0
+          { x: ox + hw, y: oy - hh, z: oz + hd }, // 1
+          { x: ox + hw, y: oy + hh, z: oz + hd }, // 2
+          { x: ox - hw, y: oy + hh, z: oz + hd }, // 3
+          { x: ox - hw, y: oy - hh, z: oz - hd }, // 4
+          { x: ox + hw, y: oy - hh, z: oz - hd }, // 5
+          { x: ox + hw, y: oy + hh, z: oz - hd }, // 6
+          { x: ox - hw, y: oy + hh, z: oz - hd }, // 7
+        ];
+        const faces = [
+          { verts: [0, 1, 2, 3], color, materialId }, // front
+          { verts: [5, 4, 7, 6], color, materialId }, // back
+          { verts: [4, 0, 3, 7], color, materialId }, // left
+          { verts: [1, 5, 6, 2], color, materialId }, // right
+          { verts: [3, 2, 6, 7], color, materialId }, // top
+          { verts: [4, 5, 1, 0], color, materialId }, // bottom
+        ];
+        return new EditableMesh(verts, faces);
+      }
+
+      static createCylinder(rTop = 0.5, rBot = 0.5, h = 1.2, segs = 8, color = '#6d7570', materialId = 'mossy_stone', ox = 0, oy = 0, oz = 0) {
+        const verts = [];
+        const faces = [];
+        const hh = h / 2;
+        for (let i = 0; i < segs; i++) {
+          const a = (i / segs) * Math.PI * 2;
+          verts.push({ x: ox + Math.cos(a) * rBot, y: oy - hh, z: oz + Math.sin(a) * rBot });
+        }
+        for (let i = 0; i < segs; i++) {
+          const a = (i / segs) * Math.PI * 2;
+          verts.push({ x: ox + Math.cos(a) * rTop, y: oy + hh, z: oz + Math.sin(a) * rTop });
+        }
+        // Sides
+        for (let i = 0; i < segs; i++) {
+          const n = (i + 1) % segs;
+          faces.push({ verts: [i, n, segs + n, segs + i], color, materialId });
+        }
+        // Bottom & Top caps
+        const botCap = [];
+        const topCap = [];
+        for (let i = 0; i < segs; i++) {
+          botCap.push(segs - 1 - i);
+          topCap.push(segs + i);
+        }
+        if (rBot > 0.001) faces.push({ verts: botCap, color, materialId });
+        if (rTop > 0.001) faces.push({ verts: topCap, color, materialId });
+        return new EditableMesh(verts, faces);
+      }
+
+      static createCone(r = 0.65, h = 1.4, segs = 7, color = '#2f6d65', materialId = 'autumn_leaf', ox = 0, oy = 0, oz = 0) {
+        const verts = [];
+        const faces = [];
+        const hh = h / 2;
+        for (let i = 0; i < segs; i++) {
+          const a = (i / segs) * Math.PI * 2;
+          verts.push({ x: ox + Math.cos(a) * r, y: oy - hh, z: oz + Math.sin(a) * r });
+        }
+        const apex = verts.length;
+        verts.push({ x: ox, y: oy + hh, z: oz });
+        for (let i = 0; i < segs; i++) {
+          const n = (i + 1) % segs;
+          faces.push({ verts: [i, n, apex], color, materialId });
+        }
+        const bot = [];
+        for (let i = segs - 1; i >= 0; i--) bot.push(i);
+        faces.push({ verts: bot, color, materialId });
+        return new EditableMesh(verts, faces);
+      }
+
+      static createLowPolySphere(r = 0.65, rings = 5, segs = 8, color = '#d97828', materialId = 'pumpkin', ox = 0, oy = 0, oz = 0) {
+        const verts = [];
+        const faces = [];
+        const topIdx = 0;
+        verts.push({ x: ox, y: oy + r, z: oz });
+        for (let y = 1; y < rings; y++) {
+          const phi = (y / rings) * Math.PI;
+          const ry = Math.cos(phi) * r;
+          const rr = Math.sin(phi) * r;
+          for (let x = 0; x < segs; x++) {
+            const theta = (x / segs) * Math.PI * 2;
+            verts.push({ x: ox + Math.cos(theta) * rr, y: oy + ry, z: oz + Math.sin(theta) * rr });
+          }
+        }
+        const botIdx = verts.length;
+        verts.push({ x: ox, y: oy - r, z: oz });
+
+        // Top fan
+        for (let x = 0; x < segs; x++) {
+          const n = (x + 1) % segs;
+          faces.push({ verts: [topIdx, 1 + n, 1 + x], color, materialId });
+        }
+        // Middle quads
+        for (let y = 0; y < rings - 2; y++) {
+          const r0 = 1 + y * segs;
+          const r1 = 1 + (y + 1) * segs;
+          for (let x = 0; x < segs; x++) {
+            const n = (x + 1) % segs;
+            faces.push({ verts: [r0 + x, r0 + n, r1 + n, r1 + x], color, materialId });
+          }
+        }
+        // Bottom fan
+        const lastRow = 1 + (rings - 2) * segs;
+        for (let x = 0; x < segs; x++) {
+          const n = (x + 1) % segs;
+          faces.push({ verts: [botIdx, lastRow + x, lastRow + n], color, materialId });
+        }
+        return new EditableMesh(verts, faces);
+      }
+
+      static createRoofPrism(w = 1.4, h = 0.9, d = 1.4, color = '#6d315c', materialId = 'velvet_plum') {
+        const hw = w / 2, hh = h / 2, hd = d / 2;
+        const verts = [
+          { x: -hw, y: -hh, z: hd },
+          { x: hw,  y: -hh, z: hd },
+          { x: 0,   y: hh,  z: hd },
+          { x: -hw, y: -hh, z: -hd },
+          { x: hw,  y: -hh, z: -hd },
+          { x: 0,   y: hh,  z: -hd },
+        ];
+        const faces = [
+          { verts: [0, 1, 2], color, materialId },
+          { verts: [4, 3, 5], color, materialId },
+          { verts: [1, 4, 5, 2], color, materialId },
+          { verts: [3, 0, 2, 5], color, materialId },
+          { verts: [3, 4, 1, 0], color, materialId },
+        ];
+        return new EditableMesh(verts, faces);
+      }
+    }
+
+    // =========================================================================
+    // 3. ORIGINAL LOW-POLY DEMONSTRATION ASSETS (100% Editable Meshes!)
+    // =========================================================================
+    const DemoWorkshop = {
+      buildCrookedBookshelf() {
+        const mesh = new EditableMesh();
+        // Left & right chunky side panels
+        mesh.mergeWith(EditableMesh.createBox(0.14, 2.2, 0.56, '#5c3822', 'aged_wood', -0.72, 1.1, 0));
+        mesh.mergeWith(EditableMesh.createBox(0.14, 2.2, 0.56, '#5c3822', 'aged_wood',  0.72, 1.1, 0));
+        // Backboard
+        mesh.mergeWith(EditableMesh.createBox(1.52, 2.24, 0.08, '#3b2317', 'dark_timber', 0, 1.12, -0.25));
+        // Ornate chunky crown & base plinth
+        mesh.mergeWith(EditableMesh.createBox(1.74, 0.16, 0.66, '#4a2c1b', 'dark_timber', 0, 2.24, 0.02));
+        mesh.mergeWith(EditableMesh.createBox(1.66, 0.16, 0.62, '#4a2c1b', 'dark_timber', 0, 0.08, 0.02));
+        // 3 Interior Shelves
+        [0.64, 1.22, 1.76].forEach(y => {
+          mesh.mergeWith(EditableMesh.createBox(1.36, 0.09, 0.50, '#6e452b', 'aged_wood', 0, y, 0.01));
+        });
+        // Colorful stylized leaning books
+        const books = [
+          { x: -0.48, y: 0.85, w: 0.12, h: 0.34, d: 0.32, c: '#9e2f38', m: 'book_crimson' },
+          { x: -0.34, y: 0.88, w: 0.13, h: 0.39, d: 0.34, c: '#34588a', m: 'book_cobalt' },
+          { x: -0.19, y: 0.83, w: 0.11, h: 0.30, d: 0.30, c: '#c9973e', m: 'tarnished_brass' },
+          { x:  0.34, y: 0.86, w: 0.14, h: 0.36, d: 0.33, c: '#6d315c', m: 'velvet_plum' },
+          { x: -0.42, y: 1.44, w: 0.14, h: 0.36, d: 0.33, c: '#2f6d65', m: 'autumn_leaf' },
+          { x: -0.26, y: 1.42, w: 0.11, h: 0.32, d: 0.31, c: '#d97828', m: 'pumpkin' },
+          { x:  0.15, y: 1.45, w: 0.15, h: 0.38, d: 0.33, c: '#9e2f38', m: 'book_crimson' },
+          { x:  0.32, y: 1.41, w: 0.12, h: 0.30, d: 0.30, c: '#34588a', m: 'book_cobalt' },
+          { x: -0.10, y: 1.96, w: 0.16, h: 0.32, d: 0.30, c: '#6d315c', m: 'velvet_plum' },
+        ];
+        books.forEach((b, idx) => {
+          const bm = EditableMesh.createBox(b.w, b.h, b.d, b.c, b.m, b.x, b.y, 0.04);
+          // Slight individual tilt for charm
+          const tilt = (idx % 3 === 0 ? 0.12 : idx % 3 === 1 ? -0.09 : 0.04);
+          for (const v of bm.vertices) {
+            v.x += (v.y - (b.y - b.h / 2)) * tilt;
+          }
+          mesh.mergeWith(bm);
+        });
+        // Whimsical Scooby-Doo crookedness + slight top flare!
+        mesh.applyDeform('taper', 0.16);
+        mesh.applyDeform('crooked', 0.34);
+        return mesh;
+      },
+
+      buildSpookyMansionDoor() {
+        const mesh = new EditableMesh();
+        // Heavy gothic stone/timber frame
+        mesh.mergeWith(EditableMesh.createBox(0.24, 2.35, 0.34, '#5e6561', 'mossy_stone', -0.78, 1.18, 0));
+        mesh.mergeWith(EditableMesh.createBox(0.24, 2.35, 0.34, '#5e6561', 'mossy_stone',  0.78, 1.18, 0));
+        mesh.mergeWith(EditableMesh.createBox(1.88, 0.28, 0.40, '#505754', 'mossy_stone',  0.00, 2.42, 0.02));
+        // Pointed Gothic pediment cap
+        const cap = EditableMesh.createRoofPrism(1.94, 0.52, 0.44, '#474e4b', 'mossy_stone');
+        mesh.mergeWith(cap, { x: 0, y: 2.82, z: 0.02 });
+        // Door Slab + Vertical Planks relief
+        mesh.mergeWith(EditableMesh.createBox(1.34, 2.28, 0.14, '#4b2d1d', 'dark_timber', 0, 1.14, 0));
+        [-0.42, 0, 0.42].forEach(x => {
+          mesh.mergeWith(EditableMesh.createBox(0.36, 2.16, 0.05, '#663f28', 'aged_wood', x, 1.14, 0.08));
+        });
+        // Wrought-iron cross straps
+        mesh.mergeWith(EditableMesh.createBox(1.30, 0.14, 0.07, '#2b2e38', 'wrought_iron', 0, 1.72, 0.10));
+        mesh.mergeWith(EditableMesh.createBox(1.30, 0.14, 0.07, '#2b2e38', 'wrought_iron', 0, 0.56, 0.10));
+        // Brass Knocker / Doorknob
+        mesh.mergeWith(EditableMesh.createLowPolySphere(0.10, 4, 6, '#d4a043', 'tarnished_brass', 0.44, 1.12, 0.16));
+        // Threshold stone step
+        mesh.mergeWith(EditableMesh.createBox(1.96, 0.16, 0.64, '#6d7570', 'mossy_stone', 0, 0.08, 0.14));
+        // Exaggerated cartoon silhouette
+        mesh.applyDeform('taper', 0.14);
+        mesh.applyDeform('crooked', 0.24);
+        return mesh;
+      },
+
+      buildStylizedTree() {
+        const mesh = new EditableMesh();
+        // Gnarled tapering trunk (3 stacked segments with bend/twist)
+        const trunk = EditableMesh.createCylinder(0.18, 0.44, 2.1, 7, '#543524', 'dark_timber', 0, 1.05, 0);
+        trunk.subdivideFaces();
+        trunk.applyDeform('twist', 0.42);
+        trunk.applyDeform('bend', 0.32);
+        mesh.mergeWith(trunk);
+
+        // Two gnarled roots
+        const root1 = EditableMesh.createCone(0.24, 0.85, 5, '#462b1c', 'dark_timber', 0.32, 0.25, 0.15);
+        root1.applyDeform('bend', 0.55);
+        mesh.mergeWith(root1);
+
+        // Chunky faceted foliage clusters (classic PS2 stylized silhouette)
+        const clusters = [
+          { x: 0.18,  y: 2.35, z: 0.02, r: 0.92, c: '#2c685f', m: 'autumn_leaf' },
+          { x: -0.52, y: 2.02, z: 0.28, r: 0.64, c: '#397d72', m: 'autumn_leaf' },
+          { x: 0.68,  y: 1.98, z: -0.22, r: 0.60, c: '#23534c', m: 'autumn_leaf' },
+          { x: 0.05,  y: 2.95, z: -0.06, r: 0.56, c: '#458f80', m: 'autumn_leaf' },
+        ];
+        for (const cl of clusters) {
+          const sp = EditableMesh.createLowPolySphere(cl.r, 4, 7, cl.c, cl.m, cl.x, cl.y, cl.z);
+          sp.applyDeform('squash', 0.28);
+          sp.applyDeform('crooked', 0.22);
+          mesh.mergeWith(sp);
+        }
+        return mesh;
+      }
+    };
+
+    // =========================================================================
+    // 4. HISTORY MANAGER (Undo / Redo Snapshot Stack)
+    // =========================================================================
+    class HistoryManager {
+      constructor(limit = 50) {
+        this.limit = limit;
+        this.stack = [];
+        this.index = -1;
+      }
+      push(snapshot, label = 'Edit') {
+        if (this.index < this.stack.length - 1) {
+          this.stack = this.stack.slice(0, this.index + 1);
+        }
+        this.stack.push({ data: JSON.stringify(snapshot), label });
+        if (this.stack.length > this.limit) this.stack.shift();
+        this.index = this.stack.length - 1;
+      }
+      canUndo() { return this.index > 0; }
+      canRedo() { return this.index < this.stack.length - 1; }
+      undo() {
+        if (!this.canUndo()) return null;
+        this.index--;
+        return { snapshot: JSON.parse(this.stack[this.index].data), label: this.stack[this.index + 1].label };
+      }
+      redo() {
+        if (!this.canRedo()) return null;
+        this.index++;
+        return { snapshot: JSON.parse(this.stack[this.index].data), label: this.stack[this.index].label };
+      }
+    }
+
+    // =========================================================================
+    // 5. STORAGE MANAGER (IndexedDB + Safe Fallback + Downloadable Backups)
+    // =========================================================================
+    const StorageManager = {
+      DB_NAME: 'PolycraftStudioDB',
+      STORE_NAME: 'projects',
+      dbPromise: null,
+
+      openDB() {
+        if (this.dbPromise) return this.dbPromise;
+        this.dbPromise = new Promise((resolve) => {
+          try {
+            if (!window.indexedDB) return resolve(null);
+            const req = indexedDB.open(this.DB_NAME, 1);
+            req.onupgradeneeded = () => {
+              const db = req.result;
+              if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
+              }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+          } catch {
+            resolve(null);
+          }
+        });
+        return this.dbPromise;
+      },
+
+      async saveProject(project) {
+        const record = { ...project, updatedAt: Date.now() };
+        const db = await this.openDB();
+        if (db) {
+          return new Promise((resolve) => {
+            try {
+              const tx = db.transaction(this.STORE_NAME, 'readwrite');
+              tx.objectStore(this.STORE_NAME).put(record);
+              tx.oncomplete = () => resolve(true);
+              tx.onerror = () => resolve(false);
+            } catch { resolve(false); }
+          });
+        }
+        try {
+          localStorage.setItem('polycraft_proj_' + record.id, JSON.stringify(record));
+          return true;
+        } catch { return false; }
+      },
+
+      async listProjects() {
+        const db = await this.openDB();
+        if (db) {
+          return new Promise((resolve) => {
+            try {
+              const tx = db.transaction(this.STORE_NAME, 'readonly');
+              const req = tx.objectStore(this.STORE_NAME).getAll();
+              req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.updatedAt - a.updatedAt));
+              req.onerror = () => resolve([]);
+            } catch { resolve([]); }
+          });
+        }
+        return [];
+      },
+
+      async deleteProject(id) {
+        const db = await this.openDB();
+        if (db) {
+          return new Promise((resolve) => {
+            try {
+              const tx = db.transaction(this.STORE_NAME, 'readwrite');
+              tx.objectStore(this.STORE_NAME).delete(id);
+              tx.oncomplete = () => resolve(true);
+              tx.onerror = () => resolve(false);
+            } catch { resolve(false); }
+          });
+        }
+        return false;
+      }
+    };
+
+    // =========================================================================
+    // 6. GODOT 4 GLB 2.0 EXPORTER, IMPORTER & VALIDATOR
+    // =========================================================================
+    const GodotGLB = {
+      validateScene(objects, unitScale = 1.0) {
+        const issues = [];
+        let totalTris = 0;
+        let visibleCount = 0;
+
+        for (const obj of objects) {
+          if (!obj.visible) continue;
+          visibleCount++;
+          const m = obj.mesh;
+          if (!m.vertices.length || !m.faces.length) {
+            issues.push({ level: 'error', text: `"${obj.name}" has no geometry.` });
+            continue;
+          }
+          let degen = 0;
+          for (let fi = 0; fi < m.faces.length; fi++) {
+            const f = m.faces[fi];
+            if (f.verts.length < 3) { degen++; continue; }
+            const v0 = m.vertices[f.verts[0]];
+            const v1 = m.vertices[f.verts[1]];
+            const v2 = m.vertices[f.verts[2]];
+            if (!v0 || !v1 || !v2) { degen++; continue; }
+            const e1 = new THREE.Vector3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
+            const e2 = new THREE.Vector3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
+            if (e1.cross(e2).lengthSq() < 1e-10) degen++;
+          }
+          if (degen > 0) {
+            issues.push({ level: 'warn', text: `"${obj.name}" has ${degen} zero-area face(s).` });
+          }
+          totalTris += m.getTriangleCount();
+        }
+
+        if (visibleCount === 0) {
+          issues.push({ level: 'error', text: 'No visible objects to export.' });
+        }
+        if (totalTris > 25000) {
+          issues.push({ level: 'warn', text: `High polygon budget (${totalTris} tris) for PS2-era target.` });
+        }
+        if (unitScale <= 0) {
+          issues.push({ level: 'error', text: 'Unit scale must be positive.' });
+        }
+
+        return {
+          ok: !issues.some(i => i.level === 'error'),
+          totalTris,
+          visibleCount,
+          issues
+        };
+      },
+
+      exportGLB(objects, unitScale = 1.0) {
+        // Standards-compliant glTF 2.0 binary (.glb) with Y-up right-handed coords,
+        // per-material primitives, POSITION, NORMAL, TEXCOORD_0, COLOR_0 & PBR materials
+        const visibleObjs = objects.filter(o => o.visible && o.mesh.faces.length > 0);
+        if (!visibleObjs.length) throw new Error('No visible geometry to export.');
+
+        const gltf = {
+          asset: { version: '2.0', generator: 'Polycraft Studio 1.0 (Godot 4 Compatible)' },
+          scene: 0,
+          scenes: [{ name: 'PolycraftScene', nodes: [] }],
+          nodes: [],
+          meshes: [],
+          materials: [],
+          buffers: [],
+          bufferViews: [],
+          accessors: []
+        };
+
+        const binChunks = [];
+        let binByteLength = 0;
+
+        const appendBuffer = (typedArray, target) => {
+          const pad = (4 - (binByteLength % 4)) % 4;
+          if (pad > 0) {
+            binChunks.push(new Uint8Array(pad));
+            binByteLength += pad;
+          }
+          const bytes = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
+          const byteOffset = binByteLength;
+          binChunks.push(bytes);
+          binByteLength += bytes.byteLength;
+          const bvIndex = gltf.bufferViews.length;
+          const bv = { buffer: 0, byteOffset, byteLength: bytes.byteLength };
+          if (target) bv.target = target;
+          gltf.bufferViews.push(bv);
+          return bvIndex;
+        };
+
+        // Build material map keyed by color + roughness + metalness
+        const matKeyMap = new Map();
+        const getMaterialIndex = (colorHex, materialId) => {
+          const preset = MaterialLib.presets.find(p => p.id === materialId) || MaterialLib.presets[0];
+          const key = `${colorHex}_${preset.roughness}_${preset.metalness}`;
+          if (matKeyMap.has(key)) return matKeyMap.get(key);
+          const [r, g, b] = MaterialLib.hexToRgb01(colorHex);
+          // Convert sRGB to linear for glTF 2.0 baseColorFactor
+          const toLin = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+          const idx = gltf.materials.length;
+          gltf.materials.push({
+            name: `${preset.name}_${idx}`,
+            pbrMetallicRoughness: {
+              baseColorFactor: [toLin(r), toLin(g), toLin(b), 1.0],
+              metallicFactor: preset.metalness,
+              roughnessFactor: preset.roughness
+            },
+            doubleSided: false
+          });
+          matKeyMap.set(key, idx);
+          return idx;
+        };
+
+        for (const obj of visibleObjs) {
+          const m = obj.mesh;
+          // Group faces by material so Godot 4 imports clean multi-material surfaces
+          const groups = new Map();
+          for (let fi = 0; fi < m.faces.length; fi++) {
+            const f = m.faces[fi];
+            if (f.verts.length < 3) continue;
+            const matIdx = getMaterialIndex(f.color || '#6b442a', f.materialId || 'aged_wood');
+            if (!groups.has(matIdx)) groups.set(matIdx, []);
+            groups.get(matIdx).push(fi);
+          }
+
+          // Smooth normals if object uses smooth shading
+          let smoothNormals = null;
+          if (!obj.flatShading) {
+            smoothNormals = m.vertices.map(() => new THREE.Vector3());
+            for (let fi = 0; fi < m.faces.length; fi++) {
+              const fn = m.computeFaceNormal(fi);
+              for (const vi of m.faces[fi].verts) smoothNormals[vi].add(fn);
+            }
+            smoothNormals.forEach(n => n.lengthSq() > 1e-8 ? n.normalize() : n.set(0, 1, 0));
+          }
+
+          const primitives = [];
+          for (const [matIdx, faceIndices] of groups.entries()) {
+            const pos = [], norm = [], uv = [];
+            let minX = Infinity, minY = Infinity, minZ = Infinity;
+            let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+            for (const fi of faceIndices) {
+              const f = m.faces[fi];
+              const fn = m.computeFaceNormal(fi);
+              const ax = Math.abs(fn.x), ay = Math.abs(fn.y), az = Math.abs(fn.z);
+              for (let i = 1; i < f.verts.length - 1; i++) {
+                const tri = [f.verts[0], f.verts[i], f.verts[i + 1]];
+                for (const vi of tri) {
+                  const v = m.vertices[vi];
+                  const px = v.x * unitScale, py = v.y * unitScale, pz = v.z * unitScale;
+                  pos.push(px, py, pz);
+                  if (px < minX) minX = px; if (py < minY) minY = py; if (pz < minZ) minZ = pz;
+                  if (px > maxX) maxX = px; if (py > maxY) maxY = py; if (pz > maxZ) maxZ = pz;
+                  const n = obj.flatShading ? fn : smoothNormals[vi];
+                  norm.push(n.x, n.y, n.z);
+                  let u = 0, vv = 0;
+                  if (ay >= ax && ay >= az) { u = v.x * 0.5 + 0.5; vv = v.z * 0.5 + 0.5; }
+                  else if (ax >= ay && ax >= az) { u = v.z * 0.5 + 0.5; vv = v.y * 0.5 + 0.5; }
+                  else { u = v.x * 0.5 + 0.5; vv = v.y * 0.5 + 0.5; }
+                  uv.push(u, vv);
+                }
+              }
+            }
+
+            const vertCount = pos.length / 3;
+            if (vertCount === 0) continue;
+
+            const posBV = appendBuffer(new Float32Array(pos), 34962);
+            const normBV = appendBuffer(new Float32Array(norm), 34962);
+            const uvBV = appendBuffer(new Float32Array(uv), 34962);
+
+            const posAcc = gltf.accessors.length;
+            gltf.accessors.push({
+              bufferView: posBV, componentType: 5126, count: vertCount, type: 'VEC3',
+              min: [minX, minY, minZ], max: [maxX, maxY, maxZ]
+            });
+            const normAcc = gltf.accessors.length;
+            gltf.accessors.push({
+              bufferView: normBV, componentType: 5126, count: vertCount, type: 'VEC3'
+            });
+            const uvAcc = gltf.accessors.length;
+            gltf.accessors.push({
+              bufferView: uvBV, componentType: 5126, count: vertCount, type: 'VEC2'
+            });
+
+            primitives.push({
+              attributes: { POSITION: posAcc, NORMAL: normAcc, TEXCOORD_0: uvAcc },
+              material: matIdx,
+              mode: 4 // TRIANGLES
+            });
+          }
+
+          if (!primitives.length) continue;
+          const meshIdx = gltf.meshes.length;
+          gltf.meshes.push({ name: obj.name, primitives });
+
+          const euler = new THREE.Euler(obj.rotation.x, obj.rotation.y, obj.rotation.z, 'XYZ');
+          const quat = new THREE.Quaternion().setFromEuler(euler);
+
+          const nodeIdx = gltf.nodes.length;
+          gltf.nodes.push({
+            name: obj.name,
+            mesh: meshIdx,
+            translation: [obj.position.x * unitScale, obj.position.y * unitScale, obj.position.z * unitScale],
+            rotation: [quat.x, quat.y, quat.z, quat.w],
+            scale: [obj.scale.x, obj.scale.y, obj.scale.z]
+          });
+          gltf.scenes[0].nodes.push(nodeIdx);
+        }
+
+        // Pad binary buffer to 4-byte boundary
+        const binPad = (4 - (binByteLength % 4)) % 4;
+        if (binPad > 0) {
+          binChunks.push(new Uint8Array(binPad));
+          binByteLength += binPad;
+        }
+        gltf.buffers.push({ byteLength: binByteLength });
+
+        const jsonStr = JSON.stringify(gltf);
+        const encoder = new TextEncoder();
+        const jsonRaw = encoder.encode(jsonStr);
+        const jsonPad = (4 - (jsonRaw.byteLength % 4)) % 4;
+        const jsonLength = jsonRaw.byteLength + jsonPad;
+
+        const totalLength = 12 + 8 + jsonLength + 8 + binByteLength;
+        const out = new ArrayBuffer(totalLength);
+        const dv = new DataView(out);
+        const u8 = new Uint8Array(out);
+
+        // GLB Header
+        dv.setUint32(0, 0x46546C67, true); // 'glTF'
+        dv.setUint32(4, 2, true);          // version 2
+        dv.setUint32(8, totalLength, true);
+
+        // JSON Chunk
+        dv.setUint32(12, jsonLength, true);
+        dv.setUint32(16, 0x4E4F534A, true); // 'JSON'
+        u8.set(jsonRaw, 20);
+        for (let i = 0; i < jsonPad; i++) u8[20 + jsonRaw.byteLength + i] = 0x20;
+
+        // BIN Chunk
+        const binStart = 20 + jsonLength;
+        dv.setUint32(binStart, binByteLength, true);
+        dv.setUint32(binStart + 4, 0x004E4942, true); // 'BIN\0'
+        let cursor = binStart + 8;
+        for (const chunk of binChunks) {
+          u8.set(chunk, cursor);
+          cursor += chunk.byteLength;
+        }
+
+        return new Uint8Array(out);
+      },
+
+      importGLB(arrayBuffer) {
+        const dv = new DataView(arrayBuffer);
+        if (dv.getUint32(0, true) !== 0x46546C67) throw new Error('Invalid GLB file header.');
+        const jsonLen = dv.getUint32(12, true);
+        const jsonBytes = new Uint8Array(arrayBuffer, 20, jsonLen);
+        const gltf = JSON.parse(new TextDecoder().decode(jsonBytes));
+        const binOffset = 20 + jsonLen + 8;
+
+        const imported = [];
+        const nodes = gltf.nodes || [];
+        for (const node of nodes) {
+          if (node.mesh === undefined) continue;
+          const gMesh = gltf.meshes[node.mesh];
+          const editable = new EditableMesh();
+
+          for (const prim of gMesh.primitives || []) {
+            if (prim.attributes.POSITION === undefined) continue;
+            const posAcc = gltf.accessors[prim.attributes.POSITION];
+            const posBV = gltf.bufferViews[posAcc.bufferView];
+            const posStart = binOffset + (posBV.byteOffset || 0) + (posAcc.byteOffset || 0);
+            const posArr = new Float32Array(arrayBuffer, posStart, posAcc.count * 3);
+
+            // Color from material if available
+            let hex = '#8b7e96';
+            if (prim.material !== undefined && gltf.materials && gltf.materials[prim.material]) {
+              const bcf = gltf.materials[prim.material].pbrMetallicRoughness?.baseColorFactor;
+              if (bcf) {
+                const toSrgb = c => Math.round(Math.min(1, Math.max(0, Math.pow(c, 1 / 2.2))) * 255);
+                hex = '#' + [toSrgb(bcf[0]), toSrgb(bcf[1]), toSrgb(bcf[2])].map(x => x.toString(16).padStart(2, '0')).join('');
+              }
+            }
+
+            const baseV = editable.vertices.length;
+            for (let i = 0; i < posAcc.count; i++) {
+              editable.vertices.push({ x: posArr[i * 3], y: posArr[i * 3 + 1], z: posArr[i * 3 + 2] });
+            }
+
+            if (prim.indices !== undefined) {
+              const idxAcc = gltf.accessors[prim.indices];
+              const idxBV = gltf.bufferViews[idxAcc.bufferView];
+              const idxStart = binOffset + (idxBV.byteOffset || 0) + (idxAcc.byteOffset || 0);
+              const idxArr = idxAcc.componentType === 5125
+                ? new Uint32Array(arrayBuffer, idxStart, idxAcc.count)
+                : new Uint16Array(arrayBuffer, idxStart, idxAcc.count);
+              for (let i = 0; i < idxArr.length; i += 3) {
+                editable.faces.push({
+                  verts: [baseV + idxArr[i], baseV + idxArr[i + 1], baseV + idxArr[i + 2]],
+                  color: hex, materialId: 'aged_wood'
+                });
+              }
+            } else {
+              for (let i = 0; i < posAcc.count; i += 3) {
+                editable.faces.push({
+                  verts: [baseV + i, baseV + i + 1, baseV + i + 2],
+                  color: hex, materialId: 'aged_wood'
+                });
+              }
+            }
+          }
+
+          editable.weldVertices([], 0.0005);
+          const t = node.translation || [0, 0, 0];
+          const s = node.scale || [1, 1, 1];
+          let rot = { x: 0, y: 0, z: 0 };
+          if (node.rotation) {
+            const q = new THREE.Quaternion(...node.rotation);
+            const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+            rot = { x: e.x, y: e.y, z: e.z };
+          }
+          imported.push({
+            name: node.name || gMesh.name || 'Imported Asset',
+            mesh: editable,
+            position: { x: t[0], y: t[1], z: t[2] },
+            rotation: rot,
+            scale: { x: s[0], y: s[1], z: s[2] }
+          });
+        }
+        return imported;
+      }
+    };
+
+    // =========================================================================
+    // 7. VIEWPORT ENGINE (Three.js + Touch/Pen/Mouse Gestures + Retro Preview)
+    // =========================================================================
+    class ViewportEngine {
+      constructor(canvas, app) {
+        this.canvas = canvas;
+        this.app = app;
+
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+
+        this.scene = new THREE.Scene();
+
+        // Cameras (Perspective + Orthographic)
+        this.perspCam = new THREE.PerspectiveCamera(45, 1, 0.05, 150);
+        this.orthoCam = new THREE.OrthographicCamera(-4, 4, 4, -4, -50, 100);
+        this.isOrtho = false;
+        this.camera = this.perspCam;
+
+        // Orbit Camera State
+        this.camTarget = new THREE.Vector3(0, 1.05, 0);
+        this.camSpherical = { radius: 5.2, theta: 0.62, phi: 1.18 };
+        this.updateCameraTransform();
+
+        // Lighting
+        this.setupLights();
+        this.setupGrid();
+
+        // Containers
+        this.objectGroup = new THREE.Group();
+        this.scene.add(this.objectGroup);
+        this.overlayGroup = new THREE.Group();
+        this.scene.add(this.overlayGroup);
+        this.gizmoGroup = new THREE.Group();
+        this.scene.add(this.gizmoGroup);
+        this.buildGizmo();
+
+        // Mesh map: objectId -> { group, mesh, wire, outline }
+        this.meshEntries = new Map();
+        this.raycaster = new THREE.Raycaster();
+        this.raycaster.params.Points.threshold = 0.14;
+        this.raycaster.params.Line.threshold = 0.12;
+
+        // Gesture / Pointer State
+        this.pointers = new Map();
+        this.gesture = null;
+        this.bindPointerEvents();
+
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.animate();
+      }
+
+      setupLights() {
+        this.hemiLight = new THREE.HemisphereLight(0xd8c8ff, 0x2d2438, 0.72);
+        this.scene.add(this.hemiLight);
+
+        this.keyLight = new THREE.DirectionalLight(0xffdfb8, 1.15);
+        this.keyLight.position.set(5, 8, 6);
+        this.keyLight.castShadow = true;
+        this.keyLight.shadow.mapSize.set(1024, 1024);
+        this.keyLight.shadow.bias = -0.0005;
+        this.scene.add(this.keyLight);
+
+        this.rimLight = new THREE.DirectionalLight(0x4de0cb, 0.55);
+        this.rimLight.position.set(-5, 4, -5);
+        this.scene.add(this.rimLight);
+
+        // Ground shadow catcher
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(40, 40),
+          new THREE.ShadowMaterial({ opacity: 0.28 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+      }
+
+      setupGrid() {
+        this.grid = new THREE.GridHelper(16, 32, 0x6b5b95, 0x2d2542);
+        this.grid.material.transparent = true;
+        this.grid.material.opacity = 0.55;
+        this.scene.add(this.grid);
+
+        // Subtle X-symmetry plane indicator
+        const symGeom = new THREE.PlaneGeometry(0.02, 6);
+        const symMat = new THREE.MeshBasicMaterial({ color: 0x38d9c0, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+        this.symPlane = new THREE.Mesh(symGeom, symMat);
+        this.symPlane.rotation.x = -Math.PI / 2;
+        this.symPlane.position.y = 0.005;
+        this.symPlane.visible = false;
+        this.scene.add(this.symPlane);
+      }
+
+      buildGizmo() {
+        // Tactile 3-axis handle gizmo for 1-finger touch dragging
+        const axes = [
+          { name: 'x', dir: new THREE.Vector3(1, 0, 0), color: 0xff5f7e, rot: [0, 0, -Math.PI / 2] },
+          { name: 'y', dir: new THREE.Vector3(0, 1, 0), color: 0x4be39a, rot: [0, 0, 0] },
+          { name: 'z', dir: new THREE.Vector3(0, 0, 1), color: 0x56b4ff, rot: [Math.PI / 2, 0, 0] },
+        ];
+        this.gizmoHandles = [];
+        for (const a of axes) {
+          const holder = new THREE.Group();
+          const mat = new THREE.MeshBasicMaterial({ color: a.color, depthTest: false, transparent: true, opacity: 0.92 });
+          const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.78, 8), mat);
+          shaft.position.y = 0.39;
+          const tip = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 10), mat);
+          tip.position.y = 0.86;
+          // Invisible larger touch collider for comfortable iPhone finger grabbing
+          const hit = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.14, 0.14, 1.05, 6),
+            new THREE.MeshBasicMaterial({ visible: false })
+          );
+          hit.position.y = 0.52;
+          hit.userData.gizmoAxis = a.name;
+
+          holder.add(shaft, tip, hit);
+          holder.rotation.set(...a.rot);
+          this.gizmoGroup.add(holder);
+          this.gizmoHandles.push(hit);
+        }
+        const centerBall = new THREE.Mesh(
+          new THREE.SphereGeometry(0.085, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xf5a623, depthTest: false })
+        );
+        centerBall.userData.gizmoAxis = 'free';
+        this.gizmoGroup.add(centerBall);
+        this.gizmoHandles.push(centerBall);
+        this.gizmoGroup.renderOrder = 999;
+        this.gizmoGroup.visible = false;
+      }
+
+      resize() {
+        const w = this.canvas.parentElement.clientWidth || window.innerWidth;
+        const h = this.canvas.parentElement.clientHeight || window.innerHeight;
+        const scale = this.app.state.preview.retro ? 0.45 : Math.min(window.devicePixelRatio || 1, 2);
+        this.renderer.setPixelRatio(scale);
+        this.renderer.setSize(w, h, false);
+        this.perspCam.aspect = w / h;
+        this.perspCam.updateProjectionMatrix();
+        this.updateOrthoFrustum(w, h);
+      }
+
+      updateOrthoFrustum(w, h) {
+        const aspect = (w || window.innerWidth) / (h || window.innerHeight);
+        const halfH = this.camSpherical.radius * 0.45;
+        this.orthoCam.left = -halfH * aspect;
+        this.orthoCam.right = halfH * aspect;
+        this.orthoCam.top = halfH;
+        this.orthoCam.bottom = -halfH;
+        this.orthoCam.updateProjectionMatrix();
+      }
+
+      setProjection(isOrtho) {
+        this.isOrtho = isOrtho;
+        this.camera = isOrtho ? this.orthoCam : this.perspCam;
+        this.updateCameraTransform();
+      }
+
+      setStandardView(view) {
+        if (view === 'front') { this.camSpherical.theta = 0; this.camSpherical.phi = Math.PI / 2; }
+        else if (view === 'back') { this.camSpherical.theta = Math.PI; this.camSpherical.phi = Math.PI / 2; }
+        else if (view === 'side') { this.camSpherical.theta = Math.PI / 2; this.camSpherical.phi = Math.PI / 2; }
+        else if (view === 'top') { this.camSpherical.theta = 0; this.camSpherical.phi = 0.05; }
+        this.updateCameraTransform();
+      }
+
+      focusSelected() {
+        const obj = this.app.getSelectedObject();
+        if (obj) {
+          const b = obj.mesh.getBounds();
+          this.camTarget.set(
+            obj.position.x + b.center.x * obj.scale.x,
+            obj.position.y + b.center.y * obj.scale.y,
+            obj.position.z + b.center.z * obj.scale.z
+          );
+          const diag = Math.max(1.5, b.size.length() * Math.max(obj.scale.x, obj.scale.y, obj.scale.z));
+          this.camSpherical.radius = diag * 1.9;
+        } else {
+          this.camTarget.set(0, 1.0, 0);
+          this.camSpherical.radius = 5.2;
+        }
+        this.updateCameraTransform();
+      }
+
+      updateCameraTransform() {
+        const { radius, theta, phi } = this.camSpherical;
+        const clampedPhi = Math.max(0.05, Math.min(Math.PI - 0.05, phi));
+        this.camSpherical.phi = clampedPhi;
+        const x = this.camTarget.x + radius * Math.sin(clampedPhi) * Math.sin(theta);
+        const y = this.camTarget.y + radius * Math.cos(clampedPhi);
+        const z = this.camTarget.z + radius * Math.sin(clampedPhi) * Math.cos(theta);
+        this.perspCam.position.set(x, y, z);
+        this.perspCam.lookAt(this.camTarget);
+        this.orthoCam.position.set(x, y, z);
+        this.orthoCam.lookAt(this.camTarget);
+        this.updateOrthoFrustum(this.canvas.clientWidth, this.canvas.clientHeight);
+      }
+
+      applyPreviewSettings() {
+        const p = this.app.state.preview;
+        this.resize();
+        document.getElementById('retro-dither-overlay').classList.toggle('active', p.retro);
+        this.scene.fog = p.retro ? new THREE.FogExp2(0x161224, 0.068) : null;
+
+        if (p.mood === 'studio') {
+          this.hemiLight.color.setHex(0xffffff);
+          this.hemiLight.groundColor.setHex(0x4b4757);
+          this.keyLight.color.setHex(0xffffff);
+          this.keyLight.intensity = 1.05;
+          this.rimLight.color.setHex(0xcbd5e1);
+          this.rimLight.intensity = 0.4;
+        } else {
+          this.hemiLight.color.setHex(0xd8c8ff);
+          this.hemiLight.groundColor.setHex(0x2d2438);
+          this.keyLight.color.setHex(0xffdfb8);
+          this.keyLight.intensity = 1.15;
+          this.rimLight.color.setHex(0x4de0cb);
+          this.rimLight.intensity = 0.6;
+        }
+
+        for (const entry of this.meshEntries.values()) {
+          entry.wire.visible = p.wireframe;
+          entry.outline.visible = p.outlines || p.retro;
+        }
+        this.symPlane.visible = this.app.state.symmetryX;
+      }
+
+      syncScene() {
+        // Rebuild Three.js meshes cleanly from EditableMesh objects
+        const activeIds = new Set(this.app.state.objects.map(o => o.id));
+        for (const [id, entry] of this.meshEntries.entries()) {
+          if (!activeIds.has(id)) {
+            this.objectGroup.remove(entry.group);
+            entry.mesh.geometry.dispose();
+            entry.wire.geometry.dispose();
+            entry.outline.geometry.dispose();
+            this.meshEntries.delete(id);
+          }
+        }
+
+        const selObjId = this.app.state.selectedObjectId;
+        const mode = this.app.state.mode;
+
+        for (const obj of this.app.state.objects) {
+          let entry = this.meshEntries.get(obj.id);
+          if (!entry) {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({
+              vertexColors: true,
+              roughness: 0.82,
+              metalness: 0.08,
+              flatShading: obj.flatShading,
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1
+            });
+            const mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData.objectId = obj.id;
+
+            const wireMat = new THREE.LineBasicMaterial({ color: 0xffe4b5, transparent: true, opacity: 0.35 });
+            const wire = new THREE.LineSegments(new THREE.BufferGeometry(), wireMat);
+
+            const outMat = new THREE.MeshBasicMaterial({ color: 0x0b0812, side: THREE.BackSide });
+            const outline = new THREE.Mesh(new THREE.BufferGeometry(), outMat);
+            outline.scale.setScalar(1.03);
+
+            group.add(mesh, wire, outline);
+            this.objectGroup.add(group);
+            entry = { group, mesh, wire, outline };
+            this.meshEntries.set(obj.id, entry);
+          }
+
+          entry.group.visible = obj.visible;
+          entry.group.position.set(obj.position.x, obj.position.y, obj.position.z);
+          entry.group.rotation.set(obj.rotation.x, obj.rotation.y, obj.rotation.z);
+          entry.group.scale.set(obj.scale.x, obj.scale.y, obj.scale.z);
+
+          const selFaces = (obj.id === selObjId && mode === 'face') ? this.app.state.selectedFaces : null;
+          const geom = obj.mesh.toThreeBufferGeometry(obj.flatShading, selFaces);
+          entry.mesh.geometry.dispose();
+          entry.mesh.geometry = geom;
+          entry.mesh.material.flatShading = obj.flatShading;
+          entry.mesh.material.emissive.setHex(obj.id === selObjId && mode === 'object' ? 0x2b1d0b : 0x000000);
+          entry.mesh.material.needsUpdate = true;
+
+          // Wireframe edges from true polygon topology
+          const edges = obj.mesh.getEdges();
+          const linePos = [];
+          for (const e of edges) {
+            const a = obj.mesh.vertices[e.a], b = obj.mesh.vertices[e.b];
+            if (!a || !b) continue;
+            linePos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+          }
+          const wireGeom = new THREE.BufferGeometry();
+          wireGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
+          entry.wire.geometry.dispose();
+          entry.wire.geometry = wireGeom;
+          entry.wire.visible = this.app.state.preview.wireframe || (obj.id === selObjId && mode !== 'object');
+
+          // Outline mesh (non-destructive retro silhouette)
+          entry.outline.geometry.dispose();
+          entry.outline.geometry = geom.clone();
+          entry.outline.visible = this.app.state.preview.outlines || this.app.state.preview.retro;
+        }
+
+        this.syncSubObjectOverlays();
+        this.syncGizmoPosition();
+        this.applyPreviewSettings();
+      }
+
+      syncSubObjectOverlays() {
+        while (this.overlayGroup.children.length) {
+          const c = this.overlayGroup.children.pop();
+          if (c.geometry) c.geometry.dispose();
+          if (c.material) c.material.dispose();
+        }
+
+        const obj = this.app.getSelectedObject();
+        if (!obj || !obj.visible) return;
+        const mode = this.app.state.mode;
+
+        const container = new THREE.Group();
+        container.position.set(obj.position.x, obj.position.y, obj.position.z);
+        container.rotation.set(obj.rotation.x, obj.rotation.y, obj.rotation.z);
+        container.scale.set(obj.scale.x, obj.scale.y, obj.scale.z);
+
+        if (mode === 'vertex') {
+          const selSet = new Set(this.app.state.selectedVerts);
+          const pos = [], col = [];
+          for (let i = 0; i < obj.mesh.vertices.length; i++) {
+            const v = obj.mesh.vertices[i];
+            pos.push(v.x, v.y, v.z);
+            if (selSet.has(i)) col.push(1.0, 0.72, 0.18);
+            else col.push(0.28, 0.88, 0.78);
+          }
+          const pGeom = new THREE.BufferGeometry();
+          pGeom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+          pGeom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+          const pts = new THREE.Points(
+            pGeom,
+            new THREE.PointsMaterial({ size: 11, sizeAttenuation: false, vertexColors: true, depthTest: false })
+          );
+          pts.renderOrder = 500;
+          container.add(pts);
+        } else if (mode === 'edge') {
+          const selKeys = new Set(this.app.state.selectedEdges);
+          const edges = obj.mesh.getEdges();
+          const selPos = [];
+          for (const e of edges) {
+            if (selKeys.has(e.key)) {
+              const a = obj.mesh.vertices[e.a], b = obj.mesh.vertices[e.b];
+              selPos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+            }
+          }
+          if (selPos.length) {
+            const eGeom = new THREE.BufferGeometry();
+            eGeom.setAttribute('position', new THREE.Float32BufferAttribute(selPos, 3));
+            const lines = new THREE.LineSegments(
+              eGeom,
+              new THREE.LineBasicMaterial({ color: 0xffb84d, depthTest: false })
+            );
+            lines.renderOrder = 500;
+            container.add(lines);
+          }
+        }
+        this.overlayGroup.add(container);
+      }
+
+      getSelectionPivotWorld() {
+        const obj = this.app.getSelectedObject();
+        if (!obj) return null;
+        const entry = this.meshEntries.get(obj.id);
+        if (!entry) return null;
+        entry.group.updateMatrixWorld(true);
+
+        const mode = this.app.state.mode;
+        if (mode === 'object') {
+          const b = obj.mesh.getBounds();
+          return b.center.clone().applyMatrix4(entry.group.matrixWorld);
+        }
+        const indices = this.app.getActiveVertexIndices();
+        if (!indices.length) return null;
+        const avg = new THREE.Vector3();
+        for (const vi of indices) {
+          const v = obj.mesh.vertices[vi];
+          if (v) avg.add(new THREE.Vector3(v.x, v.y, v.z));
+        }
+        avg.divideScalar(indices.length);
+        return avg.applyMatrix4(entry.group.matrixWorld);
+      }
+
+      syncGizmoPosition() {
+        const pivot = this.getSelectionPivotWorld();
+        if (!pivot) {
+          this.gizmoGroup.visible = false;
+          return;
+        }
+        this.gizmoGroup.visible = true;
+        this.gizmoGroup.position.copy(pivot);
+        // Keep gizmo screen-size comfortable regardless of zoom
+        const dist = this.camera.position.distanceTo(pivot);
+        const s = Math.max(0.45, Math.min(2.2, dist * 0.16));
+        this.gizmoGroup.scale.setScalar(s);
+      }
+
+      // ---- Pointer & Multi-Touch Gesture Engine (iPhone Safari + Apple Pencil + Desktop) ----
+      getNDC(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        return new THREE.Vector2(
+          ((clientX - rect.left) / rect.width) * 2 - 1,
+          -((clientY - rect.top) / rect.height) * 2 + 1
+        );
+      }
+
+      bindPointerEvents() {
+        this.canvas.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          this.canvas.setPointerCapture(e.pointerId);
+          this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, type: e.pointerType, button: e.button });
+
+          // Two fingers => ALWAYS Camera Orbit + Pan + Pinch Zoom (strict separation!)
+          if (this.pointers.size === 2) {
+            if (this.gesture && this.gesture.kind === 'transform' && this.gesture.moved) {
+              this.app.commitTransformGesture(this.gesture.beforeState);
+            }
+            const pts = Array.from(this.pointers.values());
+            const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+            this.gesture = {
+              kind: 'two_finger',
+              midX: (pts[0].x + pts[1].x) * 0.5,
+              midY: (pts[0].y + pts[1].y) * 0.5,
+              dist: Math.hypot(dx, dy)
+            };
+            return;
+          }
+
+          if (this.pointers.size === 1) {
+            // Desktop right-click or middle-click => Camera orbit / pan
+            if (e.button === 2 || (e.button === 0 && e.altKey)) {
+              this.gesture = { kind: e.shiftKey ? 'pan' : 'orbit', lastX: e.clientX, lastY: e.clientY };
+              return;
+            }
+            if (e.button === 1) {
+              this.gesture = { kind: 'pan', lastX: e.clientX, lastY: e.clientY };
+              return;
+            }
+
+            // Check Gizmo hit first for immediate 1-finger manipulation
+            const ndc = this.getNDC(e.clientX, e.clientY);
+            this.raycaster.setFromCamera(ndc, this.camera);
+            if (this.gizmoGroup.visible) {
+              const gHits = this.raycaster.intersectObjects(this.gizmoHandles, false);
+              if (gHits.length) {
+                const axis = gHits[0].object.userData.gizmoAxis;
+                this.startTransformGesture(e, axis);
+                return;
+              }
+            }
+
+            // Otherwise record pending tap vs 1-finger orbit
+            this.gesture = {
+              kind: 'tap_or_orbit',
+              startX: e.clientX,
+              startY: e.clientY,
+              lastX: e.clientX,
+              lastY: e.clientY,
+              moved: false,
+              pointerType: e.pointerType
+            };
+          }
+        }, { passive: false });
+
+        this.canvas.addEventListener('pointermove', (e) => {
+          if (!this.pointers.has(e.pointerId)) return;
+          e.preventDefault();
+          const p = this.pointers.get(e.pointerId);
+          p.x = e.clientX;
+          p.y = e.clientY;
+
+          if (!this.gesture) return;
+
+          if (this.gesture.kind === 'two_finger' && this.pointers.size >= 2) {
+            const pts = Array.from(this.pointers.values());
+            const midX = (pts[0].x + pts[1].x) * 0.5;
+            const midY = (pts[0].y + pts[1].y) * 0.5;
+            const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+
+            const dMidX = midX - this.gesture.midX;
+            const dMidY = midY - this.gesture.midY;
+            const dDist = dist - this.gesture.dist;
+
+            // Pinch zoom
+            if (Math.abs(dDist) > 1.2) {
+              this.camSpherical.radius = Math.max(1.0, Math.min(28, this.camSpherical.radius * (1 - dDist * 0.0045)));
+            }
+            // Two-finger pan
+            this.panCamera(dMidX, dMidY);
+
+            this.gesture.midX = midX;
+            this.gesture.midY = midY;
+            this.gesture.dist = dist;
+            this.updateCameraTransform();
+            this.syncGizmoPosition();
+            return;
+          }
+
+          if (this.gesture.kind === 'orbit') {
+            this.camSpherical.theta -= (e.clientX - this.gesture.lastX) * 0.0085;
+            this.camSpherical.phi -= (e.clientY - this.gesture.lastY) * 0.0085;
+            this.gesture.lastX = e.clientX;
+            this.gesture.lastY = e.clientY;
+            this.updateCameraTransform();
+            this.syncGizmoPosition();
+            return;
+          }
+
+          if (this.gesture.kind === 'pan') {
+            this.panCamera(e.clientX - this.gesture.lastX, e.clientY - this.gesture.lastY);
+            this.gesture.lastX = e.clientX;
+            this.gesture.lastY = e.clientY;
+            this.updateCameraTransform();
+            this.syncGizmoPosition();
+            return;
+          }
+
+          if (this.gesture.kind === 'transform') {
+            this.updateTransformGesture(e);
+            return;
+          }
+
+          if (this.gesture.kind === 'tap_or_orbit') {
+            const dist = Math.hypot(e.clientX - this.gesture.startX, e.clientY - this.gesture.startY);
+            if (dist > 7) this.gesture.moved = true;
+            if (this.gesture.moved) {
+              this.camSpherical.theta -= (e.clientX - this.gesture.lastX) * 0.008;
+              this.camSpherical.phi -= (e.clientY - this.gesture.lastY) * 0.008;
+              this.gesture.lastX = e.clientX;
+              this.gesture.lastY = e.clientY;
+              this.updateCameraTransform();
+              this.syncGizmoPosition();
+            }
+          }
+        }, { passive: false });
+
+        const endPointer = (e) => {
+          if (!this.pointers.has(e.pointerId)) return;
+          this.pointers.delete(e.pointerId);
+
+          if (this.gesture) {
+            if (this.gesture.kind === 'tap_or_orbit' && !this.gesture.moved) {
+              this.handleTapSelect(e.clientX, e.clientY, this.gesture.pointerType);
+            } else if (this.gesture.kind === 'transform') {
+              document.getElementById('drag-hud').classList.add('hidden');
+              if (this.gesture.moved) {
+                this.app.commitTransformGesture(this.gesture.beforeState);
+              }
+            }
+          }
+          if (this.pointers.size === 0) this.gesture = null;
+        };
+
+        this.canvas.addEventListener('pointerup', endPointer);
+        this.canvas.addEventListener('pointercancel', endPointer);
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        this.canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const factor = 1 + Math.sign(e.deltaY) * 0.1;
+          this.camSpherical.radius = Math.max(1.0, Math.min(28, this.camSpherical.radius * factor));
+          this.updateCameraTransform();
+          this.syncGizmoPosition();
+        }, { passive: false });
+      }
+
+      panCamera(dx, dy) {
+        const panSpeed = this.camSpherical.radius * 0.0018;
+        const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+        const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+        this.camTarget.addScaledVector(right, -dx * panSpeed);
+        this.camTarget.addScaledVector(up, dy * panSpeed);
+      }
+
+      startTransformGesture(e, hitAxis) {
+        const obj = this.app.getSelectedObject();
+        if (!obj) return;
+        const axis = hitAxis === 'free' ? this.app.state.axisLock : hitAxis;
+        const beforeState = this.app.serializeScene();
+        const vertIndices = this.app.getActiveVertexIndices();
+
+        // Symmetry partner lookup if X symmetry enabled in edit mode
+        const symPairs = new Map();
+        if (this.app.state.symmetryX && this.app.state.mode !== 'object') {
+          const selSet = new Set(vertIndices);
+          for (const vi of vertIndices) {
+            const v = obj.mesh.vertices[vi];
+            if (Math.abs(v.x) < 0.02) continue;
+            let bestIdx = -1, bestDist = 0.08;
+            for (let j = 0; j < obj.mesh.vertices.length; j++) {
+              if (selSet.has(j)) continue;
+              const o = obj.mesh.vertices[j];
+              const d = Math.hypot(o.x + v.x, o.y - v.y, o.z - v.z);
+              if (d < bestDist) { bestDist = d; bestIdx = j; }
+            }
+            if (bestIdx !== -1) symPairs.set(vi, { partner: bestIdx, orig: { ...obj.mesh.vertices[bestIdx] } });
+          }
+        }
+
+        const origVerts = new Map();
+        for (const vi of vertIndices) origVerts.set(vi, { ...obj.mesh.vertices[vi] });
+
+        this.gesture = {
+          kind: 'transform',
+          axis,
+          gizmoMode: this.app.state.gizmoMode,
+          startX: e.clientX,
+          startY: e.clientY,
+          moved: false,
+          beforeState,
+          origObj: {
+            pos: { ...obj.position },
+            rot: { ...obj.rotation },
+            scale: { ...obj.scale }
+          },
+          vertIndices,
+          origVerts,
+          symPairs,
+          pivotLocal: (() => {
+            const p = new THREE.Vector3();
+            for (const vi of vertIndices) {
+              const v = obj.mesh.vertices[vi];
+              p.add(new THREE.Vector3(v.x, v.y, v.z));
+            }
+            return vertIndices.length ? p.divideScalar(vertIndices.length) : p;
+          })()
+        };
+      }
+
+      updateTransformGesture(e) {
+        const obj = this.app.getSelectedObject();
+        if (!obj || !this.gesture) return;
+        const dx = e.clientX - this.gesture.startX;
+        const dy = e.clientY - this.gesture.startY;
+        if (Math.hypot(dx, dy) > 3) this.gesture.moved = true;
+
+        const snap = this.app.state.snap;
+        const sensitivity = this.camSpherical.radius * 0.004;
+        const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+        const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+
+        let worldDelta = new THREE.Vector3()
+          .addScaledVector(right, dx * sensitivity)
+          .addScaledVector(up, -dy * sensitivity);
+
+        const axis = this.gesture.axis;
+        if (axis === 'x') worldDelta.set(worldDelta.x, 0, 0);
+        else if (axis === 'y') worldDelta.set(0, worldDelta.y, 0);
+        else if (axis === 'z') worldDelta.set(0, 0, worldDelta.z);
+
+        const snapVal = (v, step) => snap ? Math.round(v / step) * step : v;
+        const hud = document.getElementById('drag-hud');
+        hud.classList.remove('hidden');
+
+        const gMode = this.gesture.gizmoMode;
+        if (this.app.state.mode === 'object') {
+          if (gMode === 'translate') {
+            obj.position.x = snapVal(this.gesture.origObj.pos.x + worldDelta.x, 0.25);
+            obj.position.y = snapVal(this.gesture.origObj.pos.y + worldDelta.y, 0.25);
+            obj.position.z = snapVal(this.gesture.origObj.pos.z + worldDelta.z, 0.25);
+            hud.textContent = `Move (${axis.toUpperCase()}): ${obj.position.x.toFixed(2)}, ${obj.position.y.toFixed(2)}, ${obj.position.z.toFixed(2)}`;
+          } else if (gMode === 'rotate') {
+            const angle = snapVal((dx - dy) * 0.012, Math.PI / 12);
+            obj.rotation.x = this.gesture.origObj.rot.x + (axis === 'x' ? angle : 0);
+            obj.rotation.y = this.gesture.origObj.rot.y + (axis === 'y' || axis === 'free' ? angle : 0);
+            obj.rotation.z = this.gesture.origObj.rot.z + (axis === 'z' ? angle : 0);
+            hud.textContent = `Rotate (${axis.toUpperCase()}): ${(angle * 180 / Math.PI).toFixed(0)}°`;
+          } else if (gMode === 'scale') {
+            const factor = Math.max(0.15, 1 + (dx - dy) * 0.006);
+            obj.scale.x = snapVal(this.gesture.origObj.scale.x * (axis === 'x' || axis === 'free' ? factor : 1), 0.1);
+            obj.scale.y = snapVal(this.gesture.origObj.scale.y * (axis === 'y' || axis === 'free' ? factor : 1), 0.1);
+            obj.scale.z = snapVal(this.gesture.origObj.scale.z * (axis === 'z' || axis === 'free' ? factor : 1), 0.1);
+            hud.textContent = `Scale (${axis.toUpperCase()}): ${factor.toFixed(2)}x`;
+          }
+        } else {
+          // Sub-object manipulation (Vertex / Edge / Face)
+          const piv = this.gesture.pivotLocal;
+          const factor = Math.max(0.1, 1 + (dx - dy) * 0.006);
+          const angle = snapVal((dx - dy) * 0.012, Math.PI / 12);
+
+          for (const vi of this.gesture.vertIndices) {
+            const o = this.gesture.origVerts.get(vi);
+            const v = obj.mesh.vertices[vi];
+            if (gMode === 'translate') {
+              v.x = snapVal(o.x + worldDelta.x / obj.scale.x, 0.125);
+              v.y = snapVal(o.y + worldDelta.y / obj.scale.y, 0.125);
+              v.z = snapVal(o.z + worldDelta.z / obj.scale.z, 0.125);
+            } else if (gMode === 'scale') {
+              v.x = piv.x + (o.x - piv.x) * (axis === 'x' || axis === 'free' ? factor : 1);
+              v.y = piv.y + (o.y - piv.y) * (axis === 'y' || axis === 'free' ? factor : 1);
+              v.z = piv.z + (o.z - piv.z) * (axis === 'z' || axis === 'free' ? factor : 1);
+            } else if (gMode === 'rotate') {
+              const rel = new THREE.Vector3(o.x - piv.x, o.y - piv.y, o.z - piv.z);
+              const rotAxis = axis === 'x' ? new THREE.Vector3(1, 0, 0) : axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+              rel.applyAxisAngle(rotAxis, angle);
+              v.x = piv.x + rel.x; v.y = piv.y + rel.y; v.z = piv.z + rel.z;
+            }
+
+            // Mirror X symmetry partner automatically
+            if (this.gesture.symPairs.has(vi)) {
+              const sp = this.gesture.symPairs.get(vi);
+              const pv = obj.mesh.vertices[sp.partner];
+              pv.x = -v.x;
+              pv.y = v.y;
+              pv.z = v.z;
+            }
+          }
+          hud.textContent = gMode === 'translate'
+            ? `Offset: ${worldDelta.x.toFixed(2)}, ${worldDelta.y.toFixed(2)}, ${worldDelta.z.toFixed(2)}`
+            : gMode === 'scale' ? `Scale: ${factor.toFixed(2)}x` : `Rotate: ${(angle * 180 / Math.PI).toFixed(0)}°`;
+        }
+
+        this.syncScene();
+      }
+
+      handleTapSelect(clientX, clientY, pointerType) {
+        const ndc = this.getNDC(clientX, clientY);
+        this.raycaster.setFromCamera(ndc, this.camera);
+        const mode = this.app.state.mode;
+
+        if (mode === 'object') {
+          const meshes = [];
+          for (const entry of this.meshEntries.values()) {
+            if (entry.group.visible) meshes.push(entry.mesh);
+          }
+          const hits = this.raycaster.intersectObjects(meshes, false);
+          if (hits.length) {
+            this.app.selectObject(hits[0].object.userData.objectId);
+          } else {
+            this.app.selectObject(null);
+          }
+          return;
+        }
+
+        const obj = this.app.getSelectedObject();
+        if (!obj) return;
+        const entry = this.meshEntries.get(obj.id);
+        if (!entry) return;
+        entry.group.updateMatrixWorld(true);
+
+        // Generous touch pick radius on iPhone, finer for Apple Pencil / Mouse
+        const pickPx = pointerType === 'touch' ? 28 : 16;
+        const rect = this.canvas.getBoundingClientRect();
+        const projectToScreen = (v) => {
+          const w = new THREE.Vector3(v.x, v.y, v.z).applyMatrix4(entry.group.matrixWorld).project(this.camera);
+          return { x: (w.x * 0.5 + 0.5) * rect.width + rect.left, y: (-w.y * 0.5 + 0.5) * rect.height + rect.top, z: w.z };
+        };
+
+        if (mode === 'face') {
+          const hits = this.raycaster.intersectObject(entry.mesh, false);
+          if (hits.length) {
+            const triIdx = hits[0].faceIndex;
+            const faceIdx = entry.mesh.geometry.userData.faceMap[triIdx];
+            if (faceIdx !== undefined) this.app.toggleFaceSelection(faceIdx);
+          } else {
+            this.app.clearSubSelection();
+          }
+        } else if (mode === 'vertex') {
+          let bestIdx = -1, bestD = pickPx;
+          for (let i = 0; i < obj.mesh.vertices.length; i++) {
+            const s = projectToScreen(obj.mesh.vertices[i]);
+            if (s.z < -1 || s.z > 1) continue;
+            const d = Math.hypot(s.x - clientX, s.y - clientY);
+            if (d < bestD) { bestD = d; bestIdx = i; }
+          }
+          if (bestIdx !== -1) this.app.toggleVertexSelection(bestIdx);
+          else this.app.clearSubSelection();
+        } else if (mode === 'edge') {
+          const edges = obj.mesh.getEdges();
+          let bestKey = null, bestD = pickPx;
+          for (const e of edges) {
+            const sa = projectToScreen(obj.mesh.vertices[e.a]);
+            const sb = projectToScreen(obj.mesh.vertices[e.b]);
+            const d = this._distToSegment(clientX, clientY, sa.x, sa.y, sb.x, sb.y);
+            if (d < bestD) { bestD = d; bestKey = e.key; }
+          }
+          if (bestKey) this.app.toggleEdgeSelection(bestKey);
+          else this.app.clearSubSelection();
+        }
+      }
+
+      _distToSegment(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1, dy = y2 - y1;
+        const l2 = dx * dx + dy * dy;
+        if (l2 === 0) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+      }
+
+      animate() {
+        requestAnimationFrame(() => this.animate());
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    // =========================================================================
+    // 8. STUDIO APPLICATION CONTROLLER
+    // =========================================================================
+    class StudioApp {
+      constructor() {
+        this.history = new HistoryManager(60);
+        this.nextId = 1;
+        this.activeSheet = null;
+        this.autosaveTimer = null;
+
+        this.state = {
+          projectId: 'default_mansion_workshop',
+          projectName: 'Haunted Mansion Props',
+          mode: 'object',      // 'object' | 'vertex' | 'edge' | 'face'
+          gizmoMode: 'translate',
+          axisLock: 'free',
+          symmetryX: false,
+          snap: false,
+          activeColor: '#6b442a',
+          activeMaterialId: 'aged_wood',
+          unitScale: 1.0,
+          preview: {
+            retro: false,
+            wireframe: false,
+            outlines: false,
+            mood: 'mansion' // 'mansion' | 'studio'
+          },
+          objects: [],
+          selectedObjectId: null,
+          selectedVerts: [],
+          selectedEdges: [],
+          selectedFaces: []
+        };
+
+        this.viewport = new ViewportEngine(document.getElementById('viewport-canvas'), this);
+        this.bindUI();
+        this.loadDemoAsset('bookshelf', true);
+        lucide.createIcons();
+      }
+
+      createSceneObject(name, mesh, pos = { x: 0, y: 0, z: 0 }) {
+        return {
+          id: 'obj_' + (this.nextId++),
+          name,
+          mesh,
+          position: { x: pos.x || 0, y: pos.y || 0, z: pos.z || 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+          visible: true,
+          flatShading: true
+        };
+      }
+
+      getSelectedObject() {
+        return this.state.objects.find(o => o.id === this.state.selectedObjectId) || null;
+      }
+
+      getActiveVertexIndices() {
+        const obj = this.getSelectedObject();
+        if (!obj) return [];
+        const mode = this.state.mode;
+        if (mode === 'vertex') return [...this.state.selectedVerts];
+        if (mode === 'edge') {
+          const set = new Set();
+          for (const key of this.state.selectedEdges) {
+            const [a, b] = key.split('_').map(Number);
+            if (!isNaN(a)) set.add(a);
+            if (!isNaN(b)) set.add(b);
+          }
+          return Array.from(set);
+        }
+        if (mode === 'face') {
+          const set = new Set();
+          for (const fi of this.state.selectedFaces) {
+            const f = obj.mesh.faces[fi];
+            if (f) f.verts.forEach(vi => set.add(vi));
+          }
+          return Array.from(set);
+        }
+        return [];
+      }
+
+      serializeScene() {
+        return {
+          id: this.state.projectId,
+          name: this.state.projectName,
+          unitScale: this.state.unitScale,
+          selectedObjectId: this.state.selectedObjectId,
+          objects: this.state.objects.map(o => ({
+            id: o.id,
+            name: o.name,
+            position: { ...o.position },
+            rotation: { ...o.rotation },
+            scale: { ...o.scale },
+            visible: o.visible,
+            flatShading: o.flatShading,
+            mesh: o.mesh.toJSON()
+          }))
+        };
+      }
+
+      restoreScene(data, recordHistory = false) {
+        this.state.projectId = data.id || this.state.projectId;
+        this.state.projectName = data.name || 'Polycraft Project';
+        this.state.unitScale = data.unitScale || 1.0;
+        this.state.objects = (data.objects || []).map(o => ({
+          id: o.id,
+          name: o.name,
+          position: { ...o.position },
+          rotation: { ...o.rotation },
+          scale: { ...o.scale },
+          visible: o.visible !== false,
+          flatShading: o.flatShading !== false,
+          mesh: EditableMesh.fromJSON(o.mesh)
+        }));
+        this.nextId = Math.max(this.nextId, this.state.objects.length + 10);
+        this.state.selectedObjectId = this.state.objects.some(o => o.id === data.selectedObjectId)
+          ? data.selectedObjectId
+          : (this.state.objects[0]?.id || null);
+        this.clearSubSelection(true);
+        if (recordHistory) this.pushHistory('Load Scene');
+        this.refreshAll();
+      }
+
+      pushHistory(label = 'Edit') {
+        this.history.push(this.serializeScene(), label);
+        this.updateUndoRedoButtons();
+        this.scheduleAutosave();
+      }
+
+      commitTransformGesture(beforeState) {
+        // Ensure beforeState is on stack if needed, then push after state
+        this.pushHistory('Transform');
+      }
+
+      scheduleAutosave() {
+        clearTimeout(this.autosaveTimer);
+        const statusEl = document.getElementById('project-status');
+        statusEl.textContent = 'Saving...';
+        this.autosaveTimer = setTimeout(async () => {
+          const ok = await StorageManager.saveProject(this.serializeScene());
+          statusEl.textContent = ok ? 'Autosaved' : 'In Memory';
+        }, 650);
+      }
+
+      toast(msg) {
+        const wrap = document.getElementById('toast-wrap');
+        const el = document.createElement('div');
+        el.className = 'toast-pill';
+        el.textContent = msg;
+        wrap.appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.2s'; }, 2000);
+        setTimeout(() => el.remove(), 2250);
+      }
+
+      // ---- Selection & Mode Control ----
+      setMode(mode) {
+        if (mode !== 'object' && !this.getSelectedObject()) {
+          if (this.state.objects.length) this.state.selectedObjectId = this.state.objects[0].id;
+          else { this.toast('Add an object first to edit geometry'); return; }
+        }
+        this.state.mode = mode;
+        this.clearSubSelection(true);
+        document.querySelectorAll('.seg-pill button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+        this.refreshAll();
+      }
+
+      selectObject(id) {
+        this.state.selectedObjectId = id;
+        this.clearSubSelection(true);
+        this.refreshAll();
+      }
+
+      toggleVertexSelection(vi) {
+        const idx = this.state.selectedVerts.indexOf(vi);
+        if (idx >= 0) this.state.selectedVerts.splice(idx, 1);
+        else this.state.selectedVerts.push(vi);
+        this.refreshAll();
+      }
+
+      toggleEdgeSelection(key) {
+        const idx = this.state.selectedEdges.indexOf(key);
+        if (idx >= 0) this.state.selectedEdges.splice(idx, 1);
+        else this.state.selectedEdges.push(key);
+        this.refreshAll();
+      }
+
+      toggleFaceSelection(fi) {
+        const idx = this.state.selectedFaces.indexOf(fi);
+        if (idx >= 0) this.state.selectedFaces.splice(idx, 1);
+        else this.state.selectedFaces.push(fi);
+        this.refreshAll();
+      }
+
+      clearSubSelection(silent = false) {
+        this.state.selectedVerts = [];
+        this.state.selectedEdges = [];
+        this.state.selectedFaces = [];
+        if (!silent) this.refreshAll();
+      }
+
+      // ---- Modeling Actions ----
+      addPrimitive(type) {
+        let mesh, name;
+        const c = this.state.activeColor, m = this.state.activeMaterialId;
+        if (type === 'box') { mesh = EditableMesh.createBox(1, 1, 1, c, m, 0, 0.5, 0); name = 'Low-Poly Box'; }
+        else if (type === 'cylinder') { mesh = EditableMesh.createCylinder(0.45, 0.45, 1.2, 8, c, m, 0, 0.6, 0); name = 'Cylinder'; }
+        else if (type === 'cone') { mesh = EditableMesh.createCone(0.6, 1.3, 7, c, m, 0, 0.65, 0); name = 'Cone Spire'; }
+        else if (type === 'sphere') { mesh = EditableMesh.createLowPolySphere(0.6, 5, 8, c, m, 0, 0.6, 0); name = 'Clay Sphere'; }
+        else if (type === 'roof') { mesh = EditableMesh.createRoofPrism(1.4, 0.9, 1.4, c, m); mesh.vertices.forEach(v => v.y += 0.45); name = 'Roof Prism'; }
+
+        const offset = (this.state.objects.length % 4) * 0.45;
+        const obj = this.createSceneObject(name, mesh, { x: offset, y: 0, z: 0 });
+        this.state.objects.push(obj);
+        this.state.selectedObjectId = obj.id;
+        this.setMode('object');
+        this.pushHistory(`Add ${name}`);
+        this.viewport.focusSelected();
+        this.toast(`Added ${name}`);
+      }
+
+      loadDemoAsset(which, replaceScene = false) {
+        if (replaceScene) this.state.objects = [];
+        if (which === 'bookshelf') {
+          const obj = this.createSceneObject('Crooked Bookshelf', DemoWorkshop.buildCrookedBookshelf(), { x: replaceScene ? 0 : 1.9, y: 0, z: 0 });
+          this.state.objects.push(obj);
+          this.state.selectedObjectId = obj.id;
+        } else if (which === 'door') {
+          const obj = this.createSceneObject('Spooky Mansion Door', DemoWorkshop.buildSpookyMansionDoor(), { x: replaceScene ? 0 : -1.9, y: 0, z: 0 });
+          this.state.objects.push(obj);
+          this.state.selectedObjectId = obj.id;
+        } else if (which === 'tree') {
+          const obj = this.createSceneObject('Stylized Spooky Tree', DemoWorkshop.buildStylizedTree(), { x: replaceScene ? 0 : 2.1, y: 0, z: -0.8 });
+          this.state.objects.push(obj);
+          this.state.selectedObjectId = obj.id;
+        } else if (which === 'vignette') {
+          this.state.objects = [
+            this.createSceneObject('Spooky Mansion Door', DemoWorkshop.buildSpookyMansionDoor(), { x: 0, y: 0, z: -0.6 }),
+            this.createSceneObject('Crooked Bookshelf', DemoWorkshop.buildCrookedBookshelf(), { x: -2.1, y: 0, z: 0.2 }),
+            this.createSceneObject('Stylized Spooky Tree', DemoWorkshop.buildStylizedTree(), { x: 2.2, y: 0, z: 0.2 }),
+          ];
+          this.state.selectedObjectId = this.state.objects[0].id;
+        }
+        this.clearSubSelection(true);
+        this.pushHistory(`Load ${which}`);
+        this.refreshAll();
+        this.viewport.focusSelected();
+        if (!replaceScene) this.toast('Spawned editable demo asset');
+      }
+
+      runFaceOp(op) {
+        const obj = this.getSelectedObject();
+        if (!obj || !this.state.selectedFaces.length) { this.toast('Tap one or more faces first'); return; }
+        if (op === 'extrude') {
+          this.state.selectedFaces = obj.mesh.extrudeFaces(this.state.selectedFaces, 0.35);
+          this.toast('Extruded faces (+0.35m)');
+        } else if (op === 'inset') {
+          this.state.selectedFaces = obj.mesh.insetFaces(this.state.selectedFaces, 0.25);
+          this.toast('Inset faces');
+        } else if (op === 'bevel') {
+          this.state.selectedFaces = obj.mesh.bevelFaces(this.state.selectedFaces, 0.14);
+          this.toast('Beveled faces');
+        } else if (op === 'subdivide') {
+          this.state.selectedFaces = obj.mesh.subdivideFaces(this.state.selectedFaces);
+          this.toast('Subdivided faces');
+        } else if (op === 'paint') {
+          for (const fi of this.state.selectedFaces) {
+            obj.mesh.faces[fi].color = this.state.activeColor;
+            obj.mesh.faces[fi].materialId = this.state.activeMaterialId;
+          }
+          this.toast('Painted selected faces');
+        } else if (op === 'delete') {
+          obj.mesh.deleteFaces(this.state.selectedFaces);
+          this.state.selectedFaces = [];
+          this.toast('Deleted faces');
+        }
+        this.pushHistory(`Face ${op}`);
+        this.refreshAll();
+      }
+
+      runVertexOp(op) {
+        const obj = this.getSelectedObject();
+        if (!obj || !this.state.selectedVerts.length) { this.toast('Tap vertices first'); return; }
+        if (op === 'weld') {
+          if (this.state.selectedVerts.length < 2) { this.toast('Select at least 2 vertices to weld'); return; }
+          obj.mesh.weldVertices(this.state.selectedVerts, 0);
+          this.state.selectedVerts = [];
+          this.toast('Welded vertices to center');
+        } else if (op === 'delete') {
+          obj.mesh.deleteVertices(this.state.selectedVerts);
+          this.state.selectedVerts = [];
+          this.toast('Deleted vertices');
+        }
+        this.pushHistory(`Vertex ${op}`);
+        this.refreshAll();
+      }
+
+      runEdgeOp(op) {
+        const obj = this.getSelectedObject();
+        if (!obj || !this.state.selectedEdges.length) { this.toast('Tap edges first'); return; }
+        if (op === 'subdivide') {
+          // Subdivide faces adjacent to selected edges
+          const edges = obj.mesh.getEdges().filter(e => this.state.selectedEdges.includes(e.key));
+          const adjFaces = [...new Set(edges.flatMap(e => e.faces))];
+          obj.mesh.subdivideFaces(adjFaces);
+          this.state.selectedEdges = [];
+          this.toast('Subdivided along selected edges');
+          this.pushHistory('Edge Subdivide');
+          this.refreshAll();
+        }
+      }
+
+      runObjectOp(op) {
+        const obj = this.getSelectedObject();
+        if (!obj) { this.toast('Select an object first'); return; }
+        if (op === 'duplicate') {
+          const copy = this.createSceneObject(obj.name + ' Copy', obj.mesh.clone(), {
+            x: obj.position.x + 0.8, y: obj.position.y, z: obj.position.z
+          });
+          copy.rotation = { ...obj.rotation };
+          copy.scale = { ...obj.scale };
+          copy.flatShading = obj.flatShading;
+          this.state.objects.push(copy);
+          this.state.selectedObjectId = copy.id;
+          this.toast('Duplicated object');
+        } else if (op === 'mirror') {
+          obj.mesh.mirrorX(true);
+          this.toast('Mirrored across X axis');
+        } else if (op === 'shading') {
+          obj.flatShading = !obj.flatShading;
+          this.toast(obj.flatShading ? 'Flat PS2 shading enabled' : 'Smooth shading enabled');
+        } else if (op === 'normals') {
+          obj.mesh.recalculateNormals();
+          this.toast('Recalculated outward normals');
+        } else if (op === 'origin_bottom') {
+          const b = obj.mesh.getBounds();
+          const dx = b.center.x, dy = b.min.y, dz = b.center.z;
+          for (const v of obj.mesh.vertices) { v.x -= dx; v.y -= dy; v.z -= dz; }
+          obj.position.x += dx; obj.position.y += dy; obj.position.z += dz;
+          this.toast('Origin snapped to base center (Godot ready)');
+        } else if (op === 'crooked_quick') {
+          obj.mesh.applyDeform('crooked', 0.25);
+          this.toast('Added whimsical crookedness!');
+        } else if (op === 'delete') {
+          this.state.objects = this.state.objects.filter(o => o.id !== obj.id);
+          this.state.selectedObjectId = this.state.objects[0]?.id || null;
+          this.toast('Deleted object');
+        }
+        this.pushHistory(`Object ${op}`);
+        this.refreshAll();
+      }
+
+      mergeAllVisible() {
+        const vis = this.state.objects.filter(o => o.visible);
+        if (vis.length < 2) { this.toast('Need at least 2 visible objects to merge'); return; }
+        const combined = new EditableMesh();
+        for (const o of vis) {
+          const cloned = o.mesh.clone();
+          const mat = new THREE.Matrix4().compose(
+            new THREE.Vector3(o.position.x, o.position.y, o.position.z),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rotation.x, o.rotation.y, o.rotation.z)),
+            new THREE.Vector3(o.scale.x, o.scale.y, o.scale.z)
+          );
+          for (const v of cloned.vertices) {
+            const tv = new THREE.Vector3(v.x, v.y, v.z).applyMatrix4(mat);
+            v.x = tv.x; v.y = tv.y; v.z = tv.z;
+          }
+          combined.mergeWith(cloned);
+        }
+        const mergedObj = this.createSceneObject('Merged Asset', combined);
+        this.state.objects = this.state.objects.filter(o => !o.visible);
+        this.state.objects.push(mergedObj);
+        this.state.selectedObjectId = mergedObj.id;
+        this.pushHistory('Merge Visible');
+        this.refreshAll();
+        this.toast('Merged visible objects into 1 mesh');
+      }
+
+      // ---- UI Rendering & Wiring ----
+      refreshAll() {
+        this.viewport.syncScene();
+        this.updateStats();
+        this.updateContextBar();
+        this.updateUndoRedoButtons();
+        if (this.activeSheet) this.renderSheet(this.activeSheet);
+        lucide.createIcons();
+      }
+
+      updateUndoRedoButtons() {
+        document.getElementById('btn-undo').disabled = !this.history.canUndo();
+        document.getElementById('btn-redo').disabled = !this.history.canRedo();
+      }
+
+      updateStats() {
+        let tris = 0, faces = 0, verts = 0;
+        for (const o of this.state.objects) {
+          if (!o.visible) continue;
+          tris += o.mesh.getTriangleCount();
+          faces += o.mesh.faces.length;
+          verts += o.mesh.vertices.length;
+        }
+        document.getElementById('stat-poly').textContent = `${tris} Tris · ${faces} Faces · ${verts} Verts`;
+        const selEl = document.getElementById('stat-sel');
+        const obj = this.getSelectedObject();
+        if (!obj) selEl.textContent = '';
+        else if (this.state.mode === 'object') selEl.textContent = obj.name;
+        else if (this.state.mode === 'face') selEl.textContent = `${this.state.selectedFaces.length} face(s)`;
+        else if (this.state.mode === 'edge') selEl.textContent = `${this.state.selectedEdges.length} edge(s)`;
+        else selEl.textContent = `${this.state.selectedVerts.length} vert(s)`;
+      }
+
+      updateContextBar() {
+        const bar = document.getElementById('context-bar');
+        const obj = this.getSelectedObject();
+        if (!obj || this.activeSheet) {
+          bar.classList.add('hidden');
+          return;
+        }
+        bar.classList.remove('hidden');
+
+        let btns = [];
+        if (this.state.mode === 'object') {
+          btns = [
+            { label: 'Duplicate', icon: 'copy', fn: () => this.runObjectOp('duplicate') },
+            { label: 'Mirror X', icon: 'flip-horizontal', fn: () => this.runObjectOp('mirror') },
+            { label: 'Crooked!', icon: 'sparkles', fn: () => this.runObjectOp('crooked_quick') },
+            { label: obj.flatShading ? 'Flat' : 'Smooth', icon: 'sun', fn: () => this.runObjectOp('shading') },
+            { label: 'Base Origin', icon: 'anchor', fn: () => this.runObjectOp('origin_bottom') },
+            { label: 'Delete', icon: 'trash-2', danger: true, fn: () => this.runObjectOp('delete') },
+          ];
+        } else if (this.state.mode === 'face') {
+          btns = [
+            { label: 'Extrude', icon: 'arrow-up-from-line', accent: true, fn: () => this.runFaceOp('extrude') },
+            { label: 'Inset', icon: 'minimize-2', fn: () => this.runFaceOp('inset') },
+            { label: 'Bevel', icon: 'octagon', fn: () => this.runFaceOp('bevel') },
+            { label: 'Subdivide', icon: 'grid-2x2', fn: () => this.runFaceOp('subdivide') },
+            { label: 'Paint', icon: 'paintbrush', fn: () => this.runFaceOp('paint') },
+            { label: 'Delete', icon: 'trash-2', danger: true, fn: () => this.runFaceOp('delete') },
+          ];
+        } else if (this.state.mode === 'edge') {
+          btns = [
+            { label: 'Subdivide Edge', icon: 'split', accent: true, fn: () => this.runEdgeOp('subdivide') },
+            { label: 'Clear', icon: 'x', fn: () => this.clearSubSelection() },
+          ];
+        } else if (this.state.mode === 'vertex') {
+          btns = [
+            { label: 'Weld Selected', icon: 'git-merge', accent: true, fn: () => this.runVertexOp('weld') },
+            { label: 'Delete Vert', icon: 'trash-2', danger: true, fn: () => this.runVertexOp('delete') },
+            { label: 'Clear', icon: 'x', fn: () => this.clearSubSelection() },
+          ];
+        }
+
+        bar.innerHTML = '';
+        for (const b of btns) {
+          const el = document.createElement('button');
+          el.className = `touch-btn px-2.5 !min-h-9 whitespace-nowrap ${b.accent ? 'active' : ''} ${b.danger ? 'text-rose-300' : ''}`;
+          el.innerHTML = `<i data-lucide="${b.icon}" class="w-3.5 h-3.5"></i><span>${b.label}</span>`;
+          el.addEventListener('click', b.fn);
+          bar.appendChild(el);
+        }
+      }
+
+      openSheet(name) {
+        if (this.activeSheet === name) { this.closeSheet(); return; }
+        this.activeSheet = name;
+        document.querySelectorAll('nav [data-sheet]').forEach(b => b.classList.toggle('active', b.dataset.sheet === name));
+        const sheet = document.getElementById('studio-sheet');
+        sheet.classList.add('open');
+        sheet.setAttribute('aria-hidden', 'false');
+        this.updateContextBar();
+        this.renderSheet(name);
+        lucide.createIcons();
+      }
+
+      closeSheet() {
+        this.activeSheet = null;
+        document.querySelectorAll('nav [data-sheet]').forEach(b => b.classList.remove('active'));
+        const sheet = document.getElementById('studio-sheet');
+        sheet.classList.remove('open');
+        sheet.setAttribute('aria-hidden', 'true');
+        this.updateContextBar();
+      }
+
+      renderSheet(name) {
+        const title = document.getElementById('sheet-title');
+        const sub = document.getElementById('sheet-subtitle');
+        const body = document.getElementById('sheet-body');
+        body.innerHTML = '';
+
+        if (name === 'add') {
+          title.textContent = 'Add Geometry & Demo Assets';
+          sub.textContent = 'All items are 100% editable meshes';
+          body.innerHTML = `
+            <div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-purple-200/70 mb-2">Primitives</div>
+              <div class="grid grid-cols-5 gap-2">
+                <button class="touch-btn flex-col py-2.5 bg-white/5 border border-white/10" data-prim="box"><i data-lucide="box" class="w-5 h-5 text-amber-300"></i><span>Box</span></button>
+                <button class="touch-btn flex-col py-2.5 bg-white/5 border border-white/10" data-prim="cylinder"><i data-lucide="cylinder" class="w-5 h-5 text-amber-300"></i><span>Cylinder</span></button>
+                <button class="touch-btn flex-col py-2.5 bg-white/5 border border-white/10" data-prim="cone"><i data-lucide="triangle" class="w-5 h-5 text-amber-300"></i><span>Spire</span></button>
+                <button class="touch-btn flex-col py-2.5 bg-white/5 border border-white/10" data-prim="sphere"><i data-lucide="circle" class="w-5 h-5 text-amber-300"></i><span>Sphere</span></button>
+                <button class="touch-btn flex-col py-2.5 bg-white/5 border border-white/10" data-prim="roof"><i data-lucide="home" class="w-5 h-5 text-amber-300"></i><span>Roof</span></button>
+              </div>
+            </div>
+            <div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-purple-200/70 mb-2">Original Mansion Demo Assets</div>
+              <div class="grid grid-cols-2 gap-2">
+                <button class="touch-btn justify-start px-3 py-2.5 bg-white/5 border border-white/10" data-demo="bookshelf">
+                  <i data-lucide="book-open" class="w-4 h-4 text-teal-300"></i>
+                  <div class="text-left"><div class="text-xs font-bold">Crooked Bookshelf</div><div class="text-[10px] text-purple-200/60">Warped timber + books</div></div>
+                </button>
+                <button class="touch-btn justify-start px-3 py-2.5 bg-white/5 border border-white/10" data-demo="door">
+                  <i data-lucide="door-closed" class="w-4 h-4 text-teal-300"></i>
+                  <div class="text-left"><div class="text-xs font-bold">Spooky Mansion Door</div><div class="text-[10px] text-purple-200/60">Gothic arch + iron</div></div>
+                </button>
+                <button class="touch-btn justify-start px-3 py-2.5 bg-white/5 border border-white/10" data-demo="tree">
+                  <i data-lucide="trees" class="w-4 h-4 text-teal-300"></i>
+                  <div class="text-left"><div class="text-xs font-bold">Stylized Tree</div><div class="text-[10px] text-purple-200/60">Twisted trunk + canopy</div></div>
+                </button>
+                <button class="touch-btn justify-start px-3 py-2.5 bg-amber-500/15 border border-amber-400/35" data-demo="vignette">
+                  <i data-lucide="castle" class="w-4 h-4 text-amber-300"></i>
+                  <div class="text-left"><div class="text-xs font-bold text-amber-100">Full Mansion Trio</div><div class="text-[10px] text-amber-200/70">Load all 3 together</div></div>
+                </button>
+              </div>
+            </div>
+          `;
+          body.querySelectorAll('[data-prim]').forEach(b => b.addEventListener('click', () => { this.addPrimitive(b.dataset.prim); this.closeSheet(); }));
+          body.querySelectorAll('[data-demo]').forEach(b => b.addEventListener('click', () => {
+            this.loadDemoAsset(b.dataset.demo, b.dataset.demo === 'vignette');
+            this.closeSheet();
+          }));
+        } else if (name === 'deform') {
+          const obj = this.getSelectedObject();
+          title.textContent = 'Cartoon Shape & Imperfection';
+          sub.textContent = obj ? obj.name : 'Select an object';
+          if (!obj) {
+            body.innerHTML = '<div class="text-xs text-purple-200/70 py-4 text-center">Tap an object in the viewport to sculpt its silhouette.</div>';
+            return;
+          }
+          const deformers = [
+            { id: 'crooked', name: 'Crookedness & Whimsy', min: -0.6, max: 0.6, step: 0.05 },
+            { id: 'taper',   name: 'Cartoon Taper / Flare', min: -0.6, max: 0.6, step: 0.05 },
+            { id: 'bend',    name: 'Curvature Bend',        min: -0.7, max: 0.7, step: 0.05 },
+            { id: 'twist',   name: 'Spooky Twist',          min: -0.8, max: 0.8, step: 0.05 },
+            { id: 'bulge',   name: 'Exaggerated Bulge',     min: -0.5, max: 0.6, step: 0.05 },
+            { id: 'squash',  name: 'Squash & Stretch',      min: -0.5, max: 0.5, step: 0.05 },
+          ];
+          body.innerHTML = `
+            <div class="text-[11px] text-purple-200/75">Slide to sculpt live, release to bake into editable mesh geometry (Undoable).</div>
+            <div class="space-y-3" id="deform-list"></div>
+          `;
+          const list = body.querySelector('#deform-list');
+          for (const d of deformers) {
+            const row = document.createElement('div');
+            row.className = 'bg-white/5 rounded-xl p-2.5 border border-white/10';
+            row.innerHTML = `
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="font-semibold">${d.name}</span>
+                <span class="text-amber-300 font-mono" data-val>0.00</span>
+              </div>
+              <input type="range" class="poly-range" min="${d.min}" max="${d.max}" step="${d.step}" value="0" />
+            `;
+            const slider = row.querySelector('input');
+            const valEl = row.querySelector('[data-val]');
+            let baseMesh = null;
+            slider.addEventListener('pointerdown', () => { baseMesh = obj.mesh.clone(); });
+            slider.addEventListener('input', () => {
+              if (!baseMesh) baseMesh = obj.mesh.clone();
+              const v = parseFloat(slider.value);
+              valEl.textContent = v.toFixed(2);
+              obj.mesh = baseMesh.clone();
+              obj.mesh.applyDeform(d.id, v);
+              this.viewport.syncScene();
+            });
+            slider.addEventListener('change', () => {
+              if (parseFloat(slider.value) !== 0) {
+                this.pushHistory(`Deform ${d.name}`);
+                slider.value = 0;
+                valEl.textContent = '0.00';
+                baseMesh = null;
+                this.toast(`Applied ${d.name}`);
+              }
+            });
+            list.appendChild(row);
+          }
+        } else if (name === 'paint') {
+          const obj = this.getSelectedObject();
+          title.textContent = 'Stylized Palette & Materials';
+          sub.textContent = this.state.mode === 'face' ? 'Paints selected faces' : 'Paints active object';
+          body.innerHTML = `
+            <div class="grid grid-cols-6 gap-2" id="palette-grid"></div>
+            <div class="flex items-center gap-2 pt-2 border-t border-white/10">
+              <button id="btn-apply-paint" class="touch-btn active flex-1 !min-h-10 bg-amber-500/20">
+                <i data-lucide="paintbrush" class="w-4 h-4"></i>
+                <span>${this.state.mode === 'face' ? 'Apply to Selected Faces' : 'Fill Entire Object'}</span>
+              </button>
+              <button id="btn-toggle-shade-sheet" class="touch-btn px-3 !min-h-10 bg-white/5 border border-white/10">
+                <i data-lucide="sun" class="w-4 h-4"></i>
+                <span>${obj ? (obj.flatShading ? 'Flat' : 'Smooth') : 'Shading'}</span>
+              </button>
+            </div>
+          `;
+          const grid = body.querySelector('#palette-grid');
+          for (const preset of MaterialLib.presets) {
+            const btn = document.createElement('button');
+            btn.className = 'flex flex-col items-center gap-1 p-1 rounded-xl hover:bg-white/5';
+            btn.innerHTML = `
+              <div class="swatch-btn ${this.state.activeColor === preset.color ? 'active' : ''}" style="background:${preset.color};"></div>
+              <span class="text-[10px] text-purple-100/80 truncate w-full text-center">${preset.name}</span>
+            `;
+            btn.addEventListener('click', () => {
+              this.state.activeColor = preset.color;
+              this.state.activeMaterialId = preset.id;
+              this.renderSheet('paint');
+            });
+            grid.appendChild(btn);
+          }
+          body.querySelector('#btn-apply-paint').addEventListener('click', () => {
+            if (!obj) { this.toast('Select an object first'); return; }
+            if (this.state.mode === 'face' && this.state.selectedFaces.length) {
+              this.runFaceOp('paint');
+            } else {
+              for (const f of obj.mesh.faces) {
+                f.color = this.state.activeColor;
+                f.materialId = this.state.activeMaterialId;
+              }
+              this.pushHistory('Paint Object');
+              this.refreshAll();
+              this.toast(`Applied ${this.state.activeMaterialId.replace('_', ' ')} to ${obj.name}`);
+            }
+          });
+          body.querySelector('#btn-toggle-shade-sheet').addEventListener('click', () => this.runObjectOp('shading'));
+        } else if (name === 'scene') {
+          title.textContent = 'Scene Objects & Topology';
+          sub.textContent = `${this.state.objects.length} object(s)`;
+          body.innerHTML = `
+            <div class="space-y-1.5" id="outliner-list"></div>
+            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
+              <button id="btn-merge-vis" class="touch-btn !min-h-9 bg-white/5 border border-white/10 text-xs"><i data-lucide="combine" class="w-3.5 h-3.5"></i>Merge Vis</button>
+              <button id="btn-recalc-norm" class="touch-btn !min-h-9 bg-white/5 border border-white/10 text-xs"><i data-lucide="compass" class="w-3.5 h-3.5"></i>Normals</button>
+              <button id="btn-weld-auto" class="touch-btn !min-h-9 bg-white/5 border border-white/10 text-xs"><i data-lucide="git-merge" class="w-3.5 h-3.5"></i>Clean Weld</button>
+            </div>
+          `;
+          const list = body.querySelector('#outliner-list');
+          if (!this.state.objects.length) {
+            list.innerHTML = '<div class="text-xs text-purple-200/60 py-3 text-center">Scene is empty. Open Add to create meshes.</div>';
+          }
+          for (const o of this.state.objects) {
+            const isSel = o.id === this.state.selectedObjectId;
+            const row = document.createElement('div');
+            row.className = `flex items-center justify-between gap-2 px-3 py-2 rounded-xl border ${isSel ? 'bg-amber-500/15 border-amber-400/45' : 'bg-white/5 border-white/10'}`;
+            row.innerHTML = `
+              <button class="flex-1 text-left flex items-center gap-2 min-w-0" data-sel>
+                <i data-lucide="box" class="w-4 h-4 ${isSel ? 'text-amber-300' : 'text-purple-200/70'} shrink-0"></i>
+                <div class="truncate">
+                  <div class="text-xs font-bold truncate">${o.name}</div>
+                  <div class="text-[10px] text-purple-200/65">${o.mesh.getTriangleCount()} tris · ${o.mesh.vertices.length} verts</div>
+                </div>
+              </button>
+              <button class="touch-btn !min-w-8 !min-h-8" data-vis title="Toggle Visibility">
+                <i data-lucide="${o.visible ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
+              </button>
+            `;
+            row.querySelector('[data-sel]').addEventListener('click', () => { this.selectObject(o.id); this.viewport.focusSelected(); });
+            row.querySelector('[data-vis]').addEventListener('click', () => {
+              o.visible = !o.visible;
+              this.pushHistory('Toggle Visibility');
+              this.refreshAll();
+            });
+            list.appendChild(row);
+          }
+          body.querySelector('#btn-merge-vis').addEventListener('click', () => this.mergeAllVisible());
+          body.querySelector('#btn-recalc-norm').addEventListener('click', () => this.runObjectOp('normals'));
+          body.querySelector('#btn-weld-auto').addEventListener('click', () => {
+            const obj = this.getSelectedObject();
+            if (!obj) return;
+            obj.mesh.weldVertices([], 0.01);
+            this.pushHistory('Auto Weld');
+            this.refreshAll();
+            this.toast('Welded duplicate vertices');
+          });
+        } else if (name === 'export') {
+          title.textContent = 'Godot 4 Export & Project Backups';
+          sub.textContent = 'glTF 2.0 Binary (.glb) + Local Backups';
+          const val = GodotGLB.validateScene(this.state.objects, this.state.unitScale);
+          const issuesHtml = val.issues.length
+            ? val.issues.map(i => `<div class="text-[11px] ${i.level === 'error' ? 'text-rose-300' : 'text-amber-300'}">• ${i.text}</div>`).join('')
+            : `<div class="text-[11px] text-emerald-300">✓ Ready for Godot 4 (${val.visibleCount} asset(s), ${val.totalTris} tris, Y-up, auto UVs & PBR materials)</div>`;
+
+          body.innerHTML = `
+            <div class="bg-white/5 rounded-xl p-3 border border-white/10 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-semibold text-purple-100">Project Name</label>
+                <input id="inp-proj-name" type="text" value="${this.state.projectName}" class="bg-black/35 border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white w-44" />
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-semibold text-purple-100">Godot Unit Scale</label>
+                <select id="sel-unit-scale" class="bg-black/45 border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white">
+                  <option value="1" ${this.state.unitScale === 1 ? 'selected' : ''}>1.0x (1m Godot Standard)</option>
+                  <option value="0.5" ${this.state.unitScale === 0.5 ? 'selected' : ''}>0.5x (Compact Props)</option>
+                  <option value="2" ${this.state.unitScale === 2 ? 'selected' : ''}>2.0x (Large Architecture)</option>
+                </select>
+              </div>
+              <div class="pt-1 border-t border-white/10">${issuesHtml}</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-export-glb" class="touch-btn active !min-h-11 bg-amber-500/20" ${val.ok ? '' : 'disabled'}>
+                <i data-lucide="download" class="w-4 h-4"></i><span>Export .GLB (Godot 4)</span>
+              </button>
+              <button id="btn-import-glb" class="touch-btn !min-h-11 bg-white/5 border border-white/10">
+                <i data-lucide="upload" class="w-4 h-4"></i><span>Import .GLB</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-backup-json" class="touch-btn !min-h-10 bg-white/5 border border-white/10 text-xs">
+                <i data-lucide="hard-drive-download" class="w-4 h-4 text-teal-300"></i><span>Download Backup (.json)</span>
+              </button>
+              <button id="btn-restore-json" class="touch-btn !min-h-10 bg-white/5 border border-white/10 text-xs">
+                <i data-lucide="folder-open" class="w-4 h-4 text-teal-300"></i><span>Restore Backup</span>
+              </button>
+            </div>
+          `;
+
+          body.querySelector('#inp-proj-name').addEventListener('input', (e) => {
+            this.state.projectName = e.target.value || 'Polycraft Project';
+            this.scheduleAutosave();
+          });
+          body.querySelector('#sel-unit-scale').addEventListener('change', (e) => {
+            this.state.unitScale = parseFloat(e.target.value);
+            this.renderSheet('export');
+          });
+          body.querySelector('#btn-export-glb').addEventListener('click', () => this.downloadGLB());
+          body.querySelector('#btn-import-glb').addEventListener('click', () => document.getElementById('input-import-glb').click());
+          body.querySelector('#btn-backup-json').addEventListener('click', () => this.downloadJSONBackup());
+          body.querySelector('#btn-restore-json').addEventListener('click', () => document.getElementById('input-import-json').click());
+        }
+      }
+
+      downloadGLB() {
+        try {
+          const bytes = GodotGLB.exportGLB(this.state.objects, this.state.unitScale);
+          const blob = new Blob([bytes], { type: 'model/gltf-binary' });
+          const slug = this.state.projectName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'polycraft_asset';
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${slug}.glb`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+          this.toast(`Exported ${slug}.glb (${(bytes.byteLength / 1024).toFixed(1)} KB)`);
+        } catch (err) {
+          this.toast('Export failed: ' + err.message);
+        }
+      }
+
+      downloadJSONBackup() {
+        const data = JSON.stringify(this.serializeScene(), null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const slug = this.state.projectName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'polycraft_project';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${slug}.polycraft.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+        this.toast(`Saved backup ${slug}.polycraft.json`);
+      }
+
+      bindUI() {
+        // Mode buttons
+        document.querySelectorAll('.seg-pill button').forEach(btn => {
+          btn.addEventListener('click', () => this.setMode(btn.dataset.mode));
+        });
+
+        // Bottom dock sheets
+        document.querySelectorAll('nav [data-sheet]').forEach(btn => {
+          btn.addEventListener('click', () => this.openSheet(btn.dataset.sheet));
+        });
+        document.getElementById('btn-close-sheet').addEventListener('click', () => this.closeSheet());
+
+        // Undo / Redo
+        document.getElementById('btn-undo').addEventListener('click', () => {
+          const res = this.history.undo();
+          if (res) { this.restoreScene(res.snapshot, false); this.toast(`Undo: ${res.label}`); }
+        });
+        document.getElementById('btn-redo').addEventListener('click', () => {
+          const res = this.history.redo();
+          if (res) { this.restoreScene(res.snapshot, false); this.toast(`Redo: ${res.label}`); }
+        });
+
+        // Symmetry & Snap
+        document.getElementById('btn-symmetry').addEventListener('click', (e) => {
+          this.state.symmetryX = !this.state.symmetryX;
+          e.currentTarget.classList.toggle('teal-active', this.state.symmetryX);
+          this.viewport.applyPreviewSettings();
+          this.toast(this.state.symmetryX ? 'X-Symmetry Editing ON' : 'X-Symmetry OFF');
+        });
+        document.getElementById('btn-snap').addEventListener('click', (e) => {
+          this.state.snap = !this.state.snap;
+          e.currentTarget.classList.toggle('active', this.state.snap);
+          this.toast(this.state.snap ? 'Grid Snap ON (0.25m)' : 'Grid Snap OFF');
+        });
+
+        // Retro PS2 Preview Toggle
+        const toggleRetro = () => {
+          this.state.preview.retro = !this.state.preview.retro;
+          document.getElementById('btn-retro').classList.toggle('active', this.state.preview.retro);
+          document.getElementById('btn-retro-inner').textContent = this.state.preview.retro ? 'On' : 'Off';
+          document.getElementById('btn-retro-inner').classList.toggle('active', this.state.preview.retro);
+          this.viewport.applyPreviewSettings();
+          this.toast(this.state.preview.retro ? 'PS2 Retro Preview ON (Export unaffected)' : 'Standard Viewport');
+        };
+        document.getElementById('btn-retro').addEventListener('click', toggleRetro);
+        document.getElementById('btn-retro-inner').addEventListener('click', toggleRetro);
+
+        // Camera Popover
+        const camPop = document.getElementById('camera-popover');
+        document.getElementById('btn-camera-menu').addEventListener('click', () => camPop.classList.toggle('hidden'));
+        document.getElementById('btn-close-cam').addEventListener('click', () => camPop.classList.add('hidden'));
+
+        document.getElementById('btn-proj-persp').addEventListener('click', () => {
+          this.viewport.setProjection(false);
+          document.getElementById('btn-proj-persp').classList.add('active');
+          document.getElementById('btn-proj-ortho').classList.remove('active');
+        });
+        document.getElementById('btn-proj-ortho').addEventListener('click', () => {
+          this.viewport.setProjection(true);
+          document.getElementById('btn-proj-ortho').classList.add('active');
+          document.getElementById('btn-proj-persp').classList.remove('active');
+        });
+        document.querySelectorAll('[data-camview]').forEach(b => {
+          b.addEventListener('click', () => this.viewport.setStandardView(b.dataset.camview));
+        });
+        document.getElementById('btn-cam-focus').addEventListener('click', () => this.viewport.focusSelected());
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+          if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        });
+
+        document.getElementById('btn-wireframe').addEventListener('click', (e) => {
+          this.state.preview.wireframe = !this.state.preview.wireframe;
+          e.currentTarget.textContent = this.state.preview.wireframe ? 'On' : 'Off';
+          e.currentTarget.classList.toggle('active', this.state.preview.wireframe);
+          this.viewport.syncScene();
+        });
+        document.getElementById('btn-outlines').addEventListener('click', (e) => {
+          this.state.preview.outlines = !this.state.preview.outlines;
+          e.currentTarget.textContent = this.state.preview.outlines ? 'On' : 'Off';
+          e.currentTarget.classList.toggle('active', this.state.preview.outlines);
+          this.viewport.applyPreviewSettings();
+        });
+        document.getElementById('btn-lighting-mood').addEventListener('click', (e) => {
+          this.state.preview.mood = this.state.preview.mood === 'mansion' ? 'studio' : 'mansion';
+          e.currentTarget.textContent = this.state.preview.mood === 'mansion' ? 'Mansion' : 'Studio';
+          this.viewport.applyPreviewSettings();
+        });
+
+        // Left Transform Rail
+        document.querySelectorAll('#transform-rail [data-gizmo]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.state.gizmoMode = btn.dataset.gizmo;
+            document.querySelectorAll('#transform-rail [data-gizmo]').forEach(b => b.classList.toggle('active', b === btn));
+          });
+        });
+        document.querySelectorAll('#transform-rail [data-axis]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.state.axisLock = btn.dataset.axis;
+            document.querySelectorAll('#transform-rail [data-axis]').forEach(b => b.classList.toggle('active', b === btn));
+          });
+        });
+
+        // File Importers
+        document.getElementById('input-import-json').addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          try {
+            const data = JSON.parse(await file.text());
+            this.restoreScene(data, true);
+            this.viewport.focusSelected();
+            this.toast(`Restored ${file.name}`);
+            this.closeSheet();
+          } catch { this.toast('Invalid project backup file'); }
+          e.target.value = '';
+        });
+
+        document.getElementById('input-import-glb').addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          try {
+            const buf = await file.arrayBuffer();
+            const items = GodotGLB.importGLB(buf);
+            if (!items.length) throw new Error('No meshes found');
+            for (const it of items) {
+              const obj = this.createSceneObject(it.name, it.mesh, it.position);
+              obj.rotation = it.rotation;
+              obj.scale = it.scale;
+              this.state.objects.push(obj);
+              this.state.selectedObjectId = obj.id;
+            }
+            this.pushHistory('Import GLB');
+            this.refreshAll();
+            this.viewport.focusSelected();
+            this.toast(`Imported ${items.length} mesh(es) from ${file.name}`);
+            this.closeSheet();
+          } catch (err) { this.toast('GLB import error: ' + err.message); }
+          e.target.value = '';
+        });
+
+        // Desktop Keyboard Shortcuts (optional bonus alongside touch)
+        window.addEventListener('keydown', (e) => {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) document.getElementById('btn-redo').click();
+            else document.getElementById('btn-undo').click();
+          } else if (e.key === '1') this.setMode('object');
+          else if (e.key === '2') this.setMode('vertex');
+          else if (e.key === '3') this.setMode('edge');
+          else if (e.key === '4') this.setMode('face');
+          else if (e.key.toLowerCase() === 'g') document.getElementById('gizmo-move').click();
+          else if (e.key.toLowerCase() === 'r') document.getElementById('gizmo-rotate').click();
+          else if (e.key.toLowerCase() === 's') document.getElementById('gizmo-scale').click();
+          else if (e.key.toLowerCase() === 'e' && this.state.mode === 'face') this.runFaceOp('extrude');
+          else if (e.key.toLowerCase() === 'f') this.viewport.focusSelected();
+        });
+      }
+    }
+
+    // Boot Application
+    window.addEventListener('DOMContentLoaded', () => {
+      window.polycraft = new StudioApp();
+    });
+
+    // Register Offline Service Worker for iPhone PWA use
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
